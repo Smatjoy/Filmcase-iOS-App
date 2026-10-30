@@ -116,6 +116,37 @@ struct RecipeDetailModelTests {
         #expect(model.cameraRecipe?.name == "Kodak Portra")
     }
 
+    @Test func theDescriptionTextIsNilUntilThereIsOneToShow() async {
+        var object = jsonObject(fixture: "recipe_detail")
+        object["description"] = "  Warm, soft skin tones.\n"
+        let body = json(object)
+        let rig = ModelRig(script: { request in
+            guard request.isAuthenticated else { return .fixture("recipe_list") }
+            let path = request.url?.path ?? ""
+            return path.hasSuffix("camera-payload.json") ? .fixture("camera_payload") : reply(body)
+        })
+        let model = RecipeDetailModel(recipeID: 1, client: rig.client)
+        #expect(model.descriptionText == nil)
+        await model.load()
+        #expect(model.descriptionText == "Warm, soft skin tones.")
+    }
+
+    @Test(arguments: ["", "   ", "\n\t "])
+    func aBlankDescriptionIsNil(blank: String) async {
+        var object = jsonObject(fixture: "recipe_detail")
+        object["description"] = blank
+        let body = json(object)
+        let rig = ModelRig(script: { request in
+            guard request.isAuthenticated else { return .fixture("recipe_list") }
+            let path = request.url?.path ?? ""
+            return path.hasSuffix("camera-payload.json") ? .fixture("camera_payload") : reply(body)
+        })
+        let model = RecipeDetailModel(recipeID: 1, client: rig.client)
+        await model.load()
+        #expect(model.state == .loaded)
+        #expect(model.descriptionText == nil)
+    }
+
     @Test func aMissingRecipeIsAnError() async {
         let model = RecipeDetailModel(recipeID: 9, client: rig(detailStatus: 404).client)
         await model.load()

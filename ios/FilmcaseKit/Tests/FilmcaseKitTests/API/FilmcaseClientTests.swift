@@ -150,4 +150,31 @@ struct FilmcaseClientTests {
         #expect(host == "pinned.test")
         #expect(tailscale.authenticatedRequests.isEmpty)
     }
+
+    @Test("thumbnailData(path:) fetches the image behind a server-relative thumbnail path")
+    func thumbnailByPath() async throws {
+        let thumbnail = Data([0xFF, 0xD8, 0xFF, 0xE0])
+        let rig = APIRig(lan: route(["/api/v1/images/7/thumbnail": .http(status: 200, body: thumbnail)]))
+        #expect(try await rig.client.thumbnailData(path: "/api/v1/images/7/thumbnail") == thumbnail)
+    }
+
+    @Test("thumbnail paths outside /api/v1/images/ are refused without a request", arguments: [
+        "/api/v1/recipes/", "/api/v1/images/7/other", "/api/v1/images/x/thumbnail", "/api/v1/images//thumbnail",
+        "/api/v1/images/7/thumbnail/extra", "/api/v1/images/../recipes/thumbnail", "api/v1/images/7/thumbnail",
+        "https://evil.test/api/v1/images/7/thumbnail", "/images/7/thumbnail", "", "/api/v1/images/7/thumbnail?x=1",
+        "/api/v1/images/-7/thumbnail", "/api/v1/images/\u{0663}/thumbnail",
+    ])
+    func foreignThumbnailPaths(path: String) async {
+        let rig = APIRig()
+        #expect(FilmcaseClient.imageID(fromThumbnailPath: path) == nil)
+        let error = await clientError { try await rig.client.thumbnailData(path: path) }
+        #expect(error?.kind == "badRequest")
+        #expect(rig.lan.authenticatedRequests.isEmpty)
+    }
+
+    @Test("imageID(fromThumbnailPath:) reads the id")
+    func thumbnailPathID() {
+        #expect(FilmcaseClient.imageID(fromThumbnailPath: "/api/v1/images/7/thumbnail") == 7)
+        #expect(FilmcaseClient.imageID(fromThumbnailPath: "/api/v1/images/1234/thumbnail") == 1234)
+    }
 }

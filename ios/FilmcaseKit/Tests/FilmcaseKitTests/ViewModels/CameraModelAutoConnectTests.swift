@@ -62,11 +62,13 @@ struct CameraModelAutoConnectTests {
         #expect(rig.model.connectionState == .idle)
         #expect(rig.model.autoConnectSuspension == .userDisconnected)
 
-        // The person's tap lifts the suspension and starts looking again.
+        // The person's tap lifts the suspension and reconnects.
         await rig.model.connect()
         #expect(rig.model.autoConnectSuspension == nil)
-        await eventually { rig.model.connectionState == .searching }
-        #expect(rig.model.connectionState == .searching)
+        // The camera is still plugged in, so it opens at once (it used to stick at searching,
+        // because the camera was never announced a second time).
+        await eventually { rig.model.isReady }
+        #expect(rig.model.isReady)
     }
 
     @Test func aModelMadeWithoutAutoConnectNeverConnectsByItself() async throws {
@@ -91,5 +93,50 @@ struct CameraModelAutoConnectTests {
         await rig.rig.transport.plugIn()
         await eventually { rig.model.slotsState == .loaded && rig.model.isReady }
         #expect(rig.model.isReady)
+    }
+
+    @Test func aSessionTheCameraClosedIsReopenedWhileItStaysPluggedIn() async throws {
+        let rig = try CameraRig(autoConnect: true)
+        defer { rig.stop() }
+        await eventually { rig.model.slotsState == .loaded && rig.model.isReady }
+        await rig.rig.transport.closeSessionFromCamera()
+        await eventually { await rig.rig.transport.openCount == 2 }
+        await eventually { rig.model.slotsState == .loaded && rig.model.isReady }
+        #expect(rig.model.isReady)
+        #expect(rig.model.slots.count == 7)
+        #expect(await rig.rig.transport.openCount == 2)
+
+        // Each loss gets its own reconnect, because a session became ready in between.
+        await rig.rig.transport.closeSessionFromCamera()
+        await eventually { await rig.rig.transport.openCount == 3 }
+        await eventually { rig.model.isReady && rig.model.slotsState == .loaded }
+        #expect(rig.model.isReady)
+    }
+
+    @Test func aLostCameraIsNotReopenedAfterThePersonDisconnected() async throws {
+        let rig = try CameraRig(autoConnect: true)
+        defer { rig.stop() }
+        await eventually { rig.model.isReady }
+        await rig.model.disconnect()
+        await eventually { rig.model.connectionState == .idle }
+        await rig.rig.transport.closeSessionFromCamera()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(rig.model.connectionState == .idle)
+        #expect(rig.model.autoConnectSuspension == .userDisconnected)
+    }
+
+    @Test func aSessionThatKeepsFailingToOpenIsNotRetriedForever() async throws {
+        let rig = try CameraRig(autoConnect: true, failOpens: [2])
+        defer { rig.stop() }
+        await eventually { rig.model.isReady }
+        await rig.rig.transport.closeSessionFromCamera()
+        await eventually { await rig.rig.transport.openCount == 2 }
+        await eventually { if case .lost(.openFailed) = rig.model.connectionState { true } else { false } }
+        try await Task.sleep(for: .milliseconds(100))
+        guard case .lost(.openFailed) = rig.model.connectionState else {
+            Issue.record("expected lost(openFailed), got \(rig.model.connectionState)")
+            return
+        }
+        #expect(await rig.rig.transport.openCount == 2)
     }
 }

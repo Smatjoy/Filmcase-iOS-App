@@ -16,6 +16,12 @@ public final class RecipeDetailModel {
     /// Why it cannot be sent, for a hint under the disabled button.
     public private(set) var sendBlockedReason: String?
 
+    /// The recipe's description, trimmed; nil when there is none to show.
+    public var descriptionText: String? {
+        let trimmed = detail?.description.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     @ObservationIgnored private let client: FilmcaseClient
     @ObservationIgnored private let camera: (any ConnectedCameraSource)?
     @ObservationIgnored private var payloadError: String?

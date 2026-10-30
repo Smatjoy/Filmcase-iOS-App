@@ -52,6 +52,10 @@ public actor CameraConnection: CameraOperationRunner {
     private let cursor = CursorTracker()
     private var device: (any PTPDevice)?
     private var eventLoop: Task<Void, Never>?
+    /// The camera the transport last reported attached. Tracked from events for the
+    /// connection's whole lifetime, because the event stream is single-consumer and reports a
+    /// camera only when it arrives: a later `connect()` must not wait for a re-announcement.
+    private var attachedCameraName: String?
     private var abort: AbortSignal?
 
     /// - Parameters:
@@ -72,6 +76,9 @@ public actor CameraConnection: CameraOperationRunner {
     deinit {
         eventLoop?.cancel()
     }
+
+    /// Whether the transport last reported a camera attached (whatever the connection state).
+    public var isDeviceAttached: Bool { attachedCameraName != nil }
 
     public var cameraName: String? {
         switch current {
@@ -94,13 +101,15 @@ public actor CameraConnection: CameraOperationRunner {
         }
         guard current == .awaitingAuthorization else { return }
         apply(.authorizationResult(granted: granted))
-        if granted { startEventLoop() }
+        guard granted else { return }
+        startEventLoop()
+        // No suspension since `.searching`, so this cannot race the event loop.
+        if attachedCameraName != nil, apply(.deviceAdded) { await openSession() }
     }
 
-    /// Stop everything and release the session.
+    /// Close the session and go idle. The event loop keeps running (it is the only consumer
+    /// of the transport's events), so device presence stays known for the next `connect()`.
     public func disconnect() async {
-        eventLoop?.cancel()
-        eventLoop = nil
         abort?.fire()
         apply(.disconnect)
         device = nil
@@ -283,10 +292,12 @@ public actor CameraConnection: CameraOperationRunner {
 
     private func handle(_ event: TransportEvent) async {
         switch event {
-        case .deviceAdded:
+        case .deviceAdded(let name):
+            attachedCameraName = name
             guard apply(.deviceAdded) else { return }
             await openSession()
         case .deviceRemoved:
+            attachedCameraName = nil
             if apply(.deviceRemoved) { await wentLost() }
         case .sessionClosed:
             if apply(.sessionClosed) { await wentLost() }

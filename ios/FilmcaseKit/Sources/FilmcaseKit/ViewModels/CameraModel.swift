@@ -8,6 +8,13 @@ public protocol CameraConnectionControl: CameraOperationRunner {
     var states: AsyncStream<ConnectionState> { get }
     func connect() async
     func disconnect() async
+    /// Whether a camera is plugged in right now, as far as the connection knows.
+    var isDeviceAttached: Bool { get async }
+}
+
+extension CameraConnectionControl {
+    /// For controls that cannot tell: the model then never reconnects after a loss by itself.
+    public var isDeviceAttached: Bool { get async { false } }
 }
 
 extension CameraConnection: CameraConnectionControl {}
@@ -70,6 +77,16 @@ public struct ConnectionPill: Equatable, Sendable {
     }
 }
 
+extension LostReason {
+    /// A loss that leaves the camera plugged in, so only asking again can bring it back.
+    fileprivate var isWorthReconnecting: Bool {
+        switch self {
+        case .sessionClosed, .transportError: return true
+        case .disconnected, .stalled, .recoveryFailed, .openFailed: return false
+        }
+    }
+}
+
 /// Why a `CameraModel` stopped connecting by itself. Only the person lifts it, by connecting.
 public enum AutoConnectSuspension: Equatable, Sendable {
     /// Camera access was refused (or cancelled); asking again is the person's call.
@@ -98,15 +115,15 @@ public final class CameraModel {
     public private(set) var autoConnectSuspension: AutoConnectSuspension?
 
     @ObservationIgnored private let connection: any CameraConnectionControl
-    @ObservationIgnored private let runtime: CameraRuntime
+    @ObservationIgnored private let runtimeSource: any CameraRuntimeSource
     @ObservationIgnored private var slotsTask: Task<Void, Never>?
     @ObservationIgnored private var slotsGeneration = 0
 
     /// - Parameter autoConnect: Whether `observe()` connects by itself (see `observe()`).
-    public init(connection: any CameraConnectionControl, runtime: CameraRuntime, autoConnect: Bool = true) {
+    public init(connection: any CameraConnectionControl, runtime: any CameraRuntimeSource, autoConnect: Bool = true) {
         self.autoConnectSuspension = autoConnect ? nil : .disabled
         self.connection = connection
-        self.runtime = runtime
+        self.runtimeSource = runtime
     }
 
     public var pill: ConnectionPill { ConnectionPill(for: connectionState) }
@@ -123,10 +140,14 @@ public final class CameraModel {
     ///
     /// While the model is idle and auto-connect is not suspended, it connects by itself, so a
     /// camera that is plugged in needs no tap: the connection asks for access if needed, then
-    /// waits for the camera and opens it. A camera that is plugged in again after a loss is
-    /// picked up by the connection's own event loop.
+    /// waits for the camera and opens it. A camera that is unplugged and plugged in again is
+    /// picked up by the connection's own event loop. When the session was closed under a camera
+    /// that is still plugged in (`lost(.sessionClosed)`, `lost(.transportError)`), nothing
+    /// announces it again, so the model reconnects once per loss (the allowance returns when a
+    /// session becomes ready, so a camera that keeps failing is not retried forever).
     public func observe() async {
         var wasConnected = false
+        var reconnectAllowed = true
         for await state in connection.states {
             connectionState = state
             if state == .unauthorized, autoConnectSuspension != .disabled {
@@ -138,6 +159,14 @@ public final class CameraModel {
                 let connection = self.connection
                 Task { await connection.connect() }
             }
+            if case .lost(let reason) = state, autoConnectSuspension == nil, reconnectAllowed,
+               reason.isWorthReconnecting, await connection.isDeviceAttached,
+               autoConnectSuspension == nil {
+                reconnectAllowed = false
+                let connection = self.connection
+                Task { await connection.connect() }
+            }
+            if case .ready = state { reconnectAllowed = true }
             let connected: Bool
             switch state {
             case .ready, .busy, .recovering: connected = true
@@ -174,7 +203,7 @@ public final class CameraModel {
         let token = slotsGeneration
         slotsState = .loading
         errorMessage = nil
-        let runtime = self.runtime
+        let runtime = await runtimeSource.currentRuntime()
         do {
             let states = try await connection.run("Read slots") { device in
                 try await getCameraSlots(device, runtime: runtime)

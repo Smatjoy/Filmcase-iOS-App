@@ -10,12 +10,13 @@ struct CameraRig {
 
     init(
         authorization: CameraAuthorizationStatus = .authorized, grants: Bool = true, attached: Bool = true,
-        autoConnect: Bool = false
+        autoConnect: Bool = false, failOpens: Set<Int> = []
     ) throws {
         rig = try ConnectionRig(
             intValues: [TestSupport.code("FilmSimulation"): 17],
             stringValues: [TestSupport.propSlotName: "Kodak Portra 400"],
-            authorizationStatus: authorization, grantsAuthorization: grants, attached: attached)
+            authorizationStatus: authorization, grantsAuthorization: grants, attached: attached,
+            failOpens: failOpens)
         let model = CameraModel(
             connection: rig.connection, runtime: try TestSupport.runtime(rig.device), autoConnect: autoConnect)
         self.model = model

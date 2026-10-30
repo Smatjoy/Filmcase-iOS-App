@@ -80,6 +80,30 @@ public struct FilmcaseClient: Sendable {
         try await get("/api/v1/images/\(imageId)/thumbnail")
     }
 
+    /// The JPEG bytes behind a server-relative thumbnail path such as `/api/v1/images/7/thumbnail`
+    /// (what the DTOs carry in `coverThumbnailURL`).
+    /// - Throws: `FilmcaseClientError.badRequest` for a path that is not an image thumbnail
+    ///   path; nothing is requested then.
+    public func thumbnailData(path: String) async throws -> Data {
+        guard let id = Self.imageID(fromThumbnailPath: path) else {
+            throw FilmcaseClientError.badRequest("Not a thumbnail path: \(path)")
+        }
+        return try await thumbnailData(imageId: id)
+    }
+
+    /// The image id in `/api/v1/images/<id>/thumbnail`, or nil for any other path. Only
+    /// paths under `/api/v1/images/` are accepted, so a path from the server can never steer
+    /// an authenticated request somewhere else.
+    public static func imageID(fromThumbnailPath path: String) -> Int? {
+        guard path.hasPrefix("/api/v1/images/"), !path.contains("?"), !path.contains("#") else { return nil }
+        let parts = path.dropFirst("/api/v1/images/".count).split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2, parts[1] == "thumbnail",
+              !parts[0].isEmpty, parts[0].allSatisfy(\.isASCII), parts[0].allSatisfy(\.isNumber),
+              let id = Int(parts[0])
+        else { return nil }
+        return id
+    }
+
     /// The camera client config JSON (property encodings, slot counts), unparsed.
     public func cameraClientConfig() async throws -> Data {
         try await get("/api/v1/camera/client-config.json")

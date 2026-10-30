@@ -23,6 +23,26 @@ public final class CollectionsModel {
         self.client = client
     }
 
+    // --- per-collection reads, so a view never shows another collection's data ---
+
+    /// Whether the model's detail is the one for *id* (not a collection opened before it).
+    public func isShowing(id: Int) -> Bool { selectedID == id }
+
+    /// The state of collection *id*'s detail: `.loading` until its own load has begun.
+    public func detailState(for id: Int) -> ContentState {
+        isShowing(id: id) ? detailState : .loading
+    }
+
+    /// Collection *id*'s detail, or nil while another collection is selected.
+    public func detail(for id: Int) -> CollectionDetail? {
+        isShowing(id: id) ? detail : nil
+    }
+
+    /// Collection *id*'s recipes in stored order; empty while another collection is selected.
+    public func orderedRecipes(for id: Int) -> [CollectionMember] {
+        isShowing(id: id) ? orderedRecipes : []
+    }
+
     public func load() async {
         listGeneration += 1
         let token = listGeneration

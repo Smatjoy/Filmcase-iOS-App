@@ -99,4 +99,50 @@ struct CollectionsModelTests {
         await loading.value
         #expect(other.detailState == .loaded)
     }
+
+    @Test func aCollectionOtherThanTheSelectedOneShowsAsLoadingWithNothingInIt() async {
+        let model = CollectionsModel(client: rig().client)
+        #expect(!model.isShowing(id: 2))
+        await model.loadDetail(id: 2)
+        #expect(model.isShowing(id: 2))
+        #expect(model.detailState(for: 2) == .loaded)
+        #expect(model.detail(for: 2)?.name == "Street")
+        #expect(model.orderedRecipes(for: 2).count == 2)
+
+        #expect(!model.isShowing(id: 5))
+        #expect(model.detailState(for: 5) == .loading)
+        #expect(model.detail(for: 5) == nil)
+        #expect(model.orderedRecipes(for: 5).isEmpty)
+    }
+
+    @Test func switchingCollectionsQuicklyNeverShowsTheFirstOnesRecipesUnderTheSecond() async {
+        let rig = ModelRig(script: { request in
+            guard request.isAuthenticated else { return .fixture("recipe_list") }
+            let id = Int(request.url?.pathComponents.last(where: { Int($0) != nil }) ?? "") ?? 0
+            var object = jsonObject(fixture: "collection_detail")
+            object["id"] = id
+            object["name"] = "Collection \(id)"
+            return reply(json(object))
+        })
+        rig.transport.gate(search: "")
+        let model = CollectionsModel(client: rig.client)
+        let first = Task { await model.loadDetail(id: 1) }
+        await eventually { rig.transport.held(search: "") == 1 }
+        let second = Task { await model.loadDetail(id: 2) }
+        await eventually { rig.transport.held(search: "") == 2 }
+
+        // Both answers arrive after the person has moved on to collection 2.
+        #expect(model.detailState(for: 1) == .loading)
+        #expect(model.detail(for: 1) == nil)
+        rig.transport.release(search: "")
+        await first.value
+        await second.value
+
+        #expect(model.isShowing(id: 2))
+        #expect(model.detail(for: 2)?.name == "Collection 2")
+        #expect(model.detailState(for: 2) == .loaded)
+        #expect(model.detail(for: 1) == nil)
+        #expect(model.orderedRecipes(for: 1).isEmpty)
+        #expect(model.detailState(for: 1) == .loading)
+    }
 }
