@@ -20,3 +20,18 @@ and macOS using Foundation only.
 P2 adds `Domain/` (Recipe, CameraProfile, Validation, RecipePTPValues, ClientConfig encodings model), ported from `src/domain/camera/{profiles,validation,queries}.py` and the JS `domain/`; tested against `tests/fixtures/camera/recipe_ptp_vectors.json`.
 
 P3 adds `Camera/` (`PTPDevice`, `CameraSleeper`/`CameraRuntime`, operations with retries, `PerPropertyStrategy` + `getStrategy`, `FakePTPDevice`) and `Application/` (`getCameraSlots`, `pushRecipeToCamera`, `withCamera`), ported from `src/domain/camera/{strategies,operations}.py` and the JS `domain/` + `application/usecases/`. `tests/fixtures/camera/push_vectors.json` replays exactly: same device calls, same sleeps, same outcome. Delays and retry counts come from the served `ClientSettings`, never from constants. Diagnostic event publishing (`vendor/events.js`) is not ported.
+
+## API client (P4)
+
+`Sources/FilmcaseKit/API/` holds the DTOs for `/api/v1/`, `FilmcaseClient`, `ServerEndpoints`
+(ordered LAN/Tailscale list, probe, failover, `NetworkPathEvents`), the TOFU decision logic
+(`TrustEvaluator`, `PinStore`) and `TokenStore`. Apple adapters (Keychain, SecTrust delegate,
+`NWPathMonitor`) implement those protocols later.
+
+Tests serve recorded responses from `Tests/FilmcaseKitTests/API/Fixtures/`. Re-record them
+(they are excluded from the SwiftPM target) from the repo root with:
+
+```
+RECORD_API_FIXTURES=1 .venv/bin/pytest \
+    ios/FilmcaseKit/Tests/FilmcaseKitTests/API/Fixtures/record_api_fixtures.py -p no:cacheprovider
+```

@@ -1,0 +1,279 @@
+{
+  "count": 1,
+  "facets": {
+    "clarity": {
+      "label": "Clarity",
+      "options": [
+        {
+          "available": true,
+          "count": 2,
+          "selected": false,
+          "value": "0"
+        }
+      ],
+      "selected": []
+    },
+    "color": {
+      "label": "Color",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "2"
+        }
+      ],
+      "selected": []
+    },
+    "color_chrome_effect": {
+      "label": "Color Chrome Effect",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Off"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Strong"
+        }
+      ],
+      "selected": []
+    },
+    "color_chrome_fx_blue": {
+      "label": "Color Chrome FX Blue",
+      "options": [
+        {
+          "available": true,
+          "count": 2,
+          "selected": false,
+          "value": "Off"
+        }
+      ],
+      "selected": []
+    },
+    "d_range_priority": {
+      "label": "D-Range Priority",
+      "options": [
+        {
+          "available": true,
+          "count": 2,
+          "selected": false,
+          "value": "Off"
+        }
+      ],
+      "selected": []
+    },
+    "dynamic_range": {
+      "label": "Dynamic Range",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "DR100"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "DR200"
+        }
+      ],
+      "selected": []
+    },
+    "film_simulation": {
+      "label": "Film Simulation",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Classic Chrome"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Provia"
+        }
+      ],
+      "selected": []
+    },
+    "grain_roughness": {
+      "label": "Grain Roughness",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Off"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Weak"
+        }
+      ],
+      "selected": []
+    },
+    "grain_size": {
+      "label": "Grain Size",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Off"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Small"
+        }
+      ],
+      "selected": []
+    },
+    "high_iso_nr": {
+      "label": "High ISO NR",
+      "options": [
+        {
+          "available": true,
+          "count": 2,
+          "selected": false,
+          "value": "0"
+        }
+      ],
+      "selected": []
+    },
+    "highlight": {
+      "label": "Highlight",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "-1"
+        }
+      ],
+      "selected": []
+    },
+    "sensors": {
+      "label": "Sensor",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "label": "X-Trans V",
+          "selected": false,
+          "value": "X-Trans V"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "label": "Not assigned",
+          "selected": false,
+          "value": "none"
+        }
+      ],
+      "selected": []
+    },
+    "shadow": {
+      "label": "Shadow",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "1"
+        }
+      ],
+      "selected": []
+    },
+    "sharpness": {
+      "label": "Sharpness",
+      "options": [
+        {
+          "available": true,
+          "count": 2,
+          "selected": false,
+          "value": "0"
+        }
+      ],
+      "selected": []
+    },
+    "white_balance": {
+      "label": "White Balance",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Auto"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "Daylight"
+        }
+      ],
+      "selected": []
+    },
+    "white_balance_blue": {
+      "label": "WB Blue",
+      "options": [
+        {
+          "available": true,
+          "count": 2,
+          "selected": false,
+          "value": "0"
+        }
+      ],
+      "selected": []
+    },
+    "white_balance_red": {
+      "label": "WB Red",
+      "options": [
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "0"
+        },
+        {
+          "available": true,
+          "count": 1,
+          "selected": false,
+          "value": "1"
+        }
+      ],
+      "selected": []
+    }
+  },
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "color_chrome_effect": "Strong",
+      "cover_thumbnail_url": "/api/v1/images/1/thumbnail",
+      "dynamic_range": "DR200",
+      "film_simulation": "Classic Chrome",
+      "grain_roughness": "Weak",
+      "id": 1,
+      "image_count": 1,
+      "is_favorite": true,
+      "name": "Kodak Portra",
+      "version": {
+        "label": "v1",
+        "position": 1
+      },
+      "white_balance": "Daylight"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "count": 2,
+  "results": [
+    {
+      "cover_thumbnail_urls": [],
+      "film_simulations": [],
+      "id": 3,
+      "name": "Empty",
+      "recipe_count": 0
+    },
+    {
+      "cover_thumbnail_urls": [
+        "/api/v1/images/1/thumbnail"
+      ],
+      "film_simulations": [
+        "Classic Chrome",
+        "Provia"
+      ],
+      "id": 2,
+      "name": "Street",
+      "recipe_count": 2
+    }
+  ]
+}

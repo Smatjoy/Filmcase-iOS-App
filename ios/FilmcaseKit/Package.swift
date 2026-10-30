@@ -9,7 +9,8 @@ let package = Package(
     ],
     targets: [
         .target(name: "FilmcaseKit"),
-        .testTarget(name: "FilmcaseKitTests", dependencies: ["FilmcaseKit"]),
+        // API/Fixtures holds recorded JSON read via #filePath, plus the Python recorder.
+        .testTarget(name: "FilmcaseKitTests", dependencies: ["FilmcaseKit"], exclude: ["API/Fixtures"]),
     ],
     swiftLanguageModes: [.v6]
 )
