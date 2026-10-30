@@ -181,6 +181,10 @@ final class AppEnvironment {
     }
 }
 
+extension AppEnvironment: CameraFeatureEnvironment {
+    var clock: any FilmcaseClock { SystemClock() }
+}
+
 /// The user's server URLs (LAN first, Tailscale second). Not secret, so UserDefaults.
 struct EndpointSettings: EndpointSettingsStore {
     private static let key = "dev.filmcase.endpoints"

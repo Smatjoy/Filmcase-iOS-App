@@ -40,7 +40,7 @@ struct CameraTab: View {
             let camera = try await environment.makeCameraModel()
             let workflow = try await environment.makeSlotWorkflow()
             model = camera
-            backups = CameraBackupsModel(store: environment.backupStore(), workflow: workflow)
+            backups = CameraBackupsModel(store: environment.backupStore, workflow: workflow)
             await backups?.load()
             await camera.observe()
         } catch {

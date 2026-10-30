@@ -3,24 +3,25 @@
 import FilmcaseKit
 import Foundation
 
-/// What the camera feature needs from the app. AppEnvironment conforms (P6b/lead wire it).
+/// What the camera feature needs from the app. `AppEnvironment` conforms.
 @MainActor protocol CameraFeatureEnvironment: AnyObject {
-    var cameraConnection: CameraConnection { get }
+    var connection: CameraConnection { get }
     var client: FilmcaseClient { get }
-    func backupStore() -> any BackupStore
-    func cameraRuntime() async throws -> CameraRuntime   // built from served client config
+    var backupStore: any BackupStore { get }
+    var cameraRuntime: CameraRuntime { get }
+    /// The one CameraModel the app shares (tab-bar pill, Camera tab, Send sheet), so
+    /// only one model observes the connection.
+    var cameraModel: CameraModel { get }
     var clock: any FilmcaseClock { get }
 }
 
 extension CameraFeatureEnvironment {
     /// Composition only: the models' initializers take these pieces.
     func makeCameraModel() async throws -> CameraModel {
-        CameraModel(connection: cameraConnection, runtime: try await cameraRuntime())
+        cameraModel
     }
 
     func makeSlotWorkflow() async throws -> SlotBackupWorkflow {
-        SlotBackupWorkflow(
-            runner: cameraConnection, store: backupStore(),
-            runtime: try await cameraRuntime(), clock: clock)
+        SlotBackupWorkflow(runner: connection, store: backupStore, runtime: cameraRuntime, clock: clock)
     }
 }
