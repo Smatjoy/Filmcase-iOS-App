@@ -1,0 +1,70 @@
+{
+  "bodies": [
+    "X-E5",
+    "X-H2",
+    "X-H2S",
+    "X-M5",
+    "X-S20",
+    "X-T30 III",
+    "X-T5",
+    "X-T50",
+    "X100VI"
+  ],
+  "camera_payload_url": "/api/v1/recipes/1/camera-payload.json",
+  "clarity": 0.0,
+  "collections": [
+    {
+      "id": 2,
+      "name": "Street",
+      "recipe_count": 2
+    }
+  ],
+  "color": 2.0,
+  "color_chrome_effect": "Strong",
+  "color_chrome_fx_blue": "Off",
+  "cover_image_url": "/api/v1/images/1/file",
+  "cover_thumbnail_url": "/api/v1/images/1/thumbnail",
+  "d_range_priority": "Off",
+  "description": "",
+  "dynamic_range": "DR200",
+  "film_simulation": "Classic Chrome",
+  "grain_roughness": "Weak",
+  "grain_size": "Small",
+  "high_iso_nr": 0.0,
+  "highlight": -1.0,
+  "id": 1,
+  "image_count": 1,
+  "is_favorite": true,
+  "is_monochromatic": false,
+  "monochromatic_color_magenta_green": null,
+  "monochromatic_color_warm_cool": null,
+  "name": "Kodak Portra",
+  "sensors": [
+    "X-Trans V"
+  ],
+  "shadow": 1.0,
+  "sharpness": 0.0,
+  "version": {
+    "label": "v1",
+    "position": 1
+  },
+  "version_line": [
+    {
+      "id": 1,
+      "is_current": true,
+      "label": "v1",
+      "name": "Kodak Portra",
+      "position": 1
+    },
+    {
+      "id": 2,
+      "is_current": false,
+      "label": "v2",
+      "name": "Plain Provia",
+      "position": 2
+    }
+  ],
+  "white_balance": "Daylight",
+  "white_balance_blue": 0,
+  "white_balance_red": 0
+}

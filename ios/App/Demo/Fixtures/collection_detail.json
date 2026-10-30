@@ -1,0 +1,24 @@
+{
+  "id": 2,
+  "name": "Street",
+  "recipe_ids": [
+    1,
+    2
+  ],
+  "recipes": [
+    {
+      "film_simulation": "Classic Chrome",
+      "id": 1,
+      "image_count": 1,
+      "name": "Kodak Portra",
+      "position": 0
+    },
+    {
+      "film_simulation": "Provia",
+      "id": 2,
+      "image_count": 0,
+      "name": "Plain Provia",
+      "position": 1
+    }
+  ]
+}

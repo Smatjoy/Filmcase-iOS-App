@@ -32,7 +32,17 @@ targets:
     type: application
     platform: iOS
     sources:
+      # Code, assets and the rest of App/ ...
       - path: App
+        excludes:
+          - "Demo/Fixtures/**"
+          - "Fonts/**"
+      # ... and the bundled data/fonts, explicitly as resources (flattened into the bundle root,
+      # which is where DemoHTTPTransport and UIAppFonts look for them).
+      - path: App/Demo/Fixtures
+        buildPhase: resources
+      - path: App/Fonts
+        buildPhase: resources
     dependencies:
       - package: FilmcaseKit
         product: FilmcaseKit
@@ -52,6 +62,10 @@ targets:
         NSLocalNetworkUsageDescription: "Filmcase connects to your Filmcase server on your local network."
         NSCameraUsageDescription: "Filmcase talks to your Fujifilm camera over USB-C to read and write custom slots."
         UILaunchScreen: {}
+        UIAppFonts:
+          - SpaceMono-Regular.ttf
+          - SpaceMono-Bold.ttf
+          - "Archivo-VariableFont_wdth,wght.ttf"
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIApplicationSceneManifest:
@@ -69,6 +83,18 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.filmcase.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  FilmcaseUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: AppUITests
+    dependencies:
+      - target: Filmcase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.filmcase.app.uitests
         GENERATE_INFOPLIST_FILE: YES
 
   USBSpike:
@@ -103,12 +129,14 @@ schemes:
       targets:
         Filmcase: all
         FilmcaseTests: [test]
+        FilmcaseUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
         - FilmcaseTests
+        - FilmcaseUITests
     archive:
       config: Release
 

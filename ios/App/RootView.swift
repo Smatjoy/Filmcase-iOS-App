@@ -13,43 +13,35 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("Recipes", systemImage: "camera.filters", value: AppTab.recipes) {
-                NavigationStack {
-                    PlaceholderView(title: "Recipes", detail: "Browse, search and filter your film simulation recipes.")
-                }
+                RecipesTab(environment: environment)
             }
             Tab("Collections", systemImage: "rectangle.stack", value: AppTab.collections) {
-                NavigationStack {
-                    PlaceholderView(title: "Collections", detail: "Your recipe collections and their C1-C7 slot order.")
-                }
+                CollectionsTab(environment: environment)
             }
             Tab("Camera", systemImage: "camera", value: AppTab.camera) {
-                NavigationStack {
-                    PlaceholderView(title: "Camera", detail: "Connection status and sending recipes to camera slots.")
-                }
+                // CameraTab (P7) is expected to provide its own NavigationStack.
+                CameraTab(environment: environment)
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
-                NavigationStack {
-                    PlaceholderView(title: "Settings", detail: "Servers, token and pinned certificates.")
-                }
+                SettingsTab(environment: environment)
             }
         }
+        // API: tabBarMinimizeBehavior(_:) (iOS 26, iPhone only): the bar shrinks on scroll.
+        .tabBarMinimizeBehavior(.onScrollDown)
+        // API: tabViewBottomAccessory(content:) (iOS 26): a persistent camera pill above the tab bar.
+        .tabViewBottomAccessory {
+            ConnectionPillButton(model: environment.cameraModel) { selection = .camera }
+        }
         .task { await environment.observePathChanges() }
-        .task { showsOnboarding = await OnboardingState.needsOnboarding(in: environment) }
+        .task { await environment.observeCamera() }
+        .task { await environment.connectDemoCameraIfNeeded() }
+        .task { showsOnboarding = await environment.needsOnboarding() }
         .sheet(isPresented: $showsOnboarding) {
-            OnboardingView(state: OnboardingState(environment: environment)) {
+            OnboardingView(environment: environment, onCancel: nil) {
                 showsOnboarding = false
+                Task { await environment.reloadServerContent() }
             }
             .interactiveDismissDisabled()
         }
-    }
-}
-
-struct PlaceholderView: View {
-    let title: String
-    let detail: String
-
-    var body: some View {
-        ContentUnavailableView(title, systemImage: "hammer", description: Text(detail))
-            .navigationTitle(title)
     }
 }
