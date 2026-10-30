@@ -132,16 +132,16 @@ Each phase lists its **acceptance gate**. Nothing merges until the gate is green
 
 | # | Phase | Written | Gated | Gate |
 |---|---|---|---|---|
-| **P0** | **Server JSON API + token auth** (Django). `/api/v1/` recipes, collections, thumbnails, mirrored camera JSON; bearer `FILMCASE_API_TOKEN`, fail-closed when unset; ADR 022. | Cloud | Cloud | Full `pytest`, import-linter, mypy. |
+| **P0** ✅ | **Server JSON API + token auth** (Django). `/api/v1/` recipes, collections, thumbnails, mirrored camera JSON; bearer `FILMCASE_API_TOKEN`, fail-closed when unset; ADR 022. | Cloud | Cloud | Full `pytest`, import-linter, mypy. |
 | **P1** ✅ | **FilmcaseKit: PTP framing.** | Cloud | Cloud | `ptp_vectors.json` byte-for-byte (42 cases). |
-| **P2** | **Domain**: `Recipe`, `CameraProfile.xt50`, `Validation`, `RecipePTPValues`. | Cloud | Cloud | `recipe_ptp_vectors.json`. |
-| **P3** | **Strategy + use cases**, `Clock`, `FakePTPDevice`. | Cloud | Cloud | `push_vectors.json` replays exactly. |
-| **P4** | **API client**: DTOs, `FilmcaseClient`, `ServerEndpoints` (LAN ↔ Tailscale failover), TOFU pin *decision* logic, `KeychainStore` protocol. | Cloud | Cloud | `URLProtocol` stub tests against JSON recorded from P0; failover and pin-mismatch scenarios. |
-| **P4b** | **Connection + workflows**: `CameraConnection` state machine, `SlotBackup` (backup → push → verify → restore), `CollectionPush` (ordering, inter-slot delay, partial failure). | Cloud | Cloud | Table-driven transition tests; workflow tests against `FakePTPDevice` + `TestClock`, including stall → recover → cursor restored. |
+| **P2** ✅ | **Domain**: `Recipe`, `CameraProfile.xt50`, `Validation`, `RecipePTPValues`. | Cloud | Cloud | `recipe_ptp_vectors.json`. |
+| **P3** ✅ | **Strategy + use cases**, `Clock`, `FakePTPDevice`. | Cloud | Cloud | `push_vectors.json` replays exactly. |
+| **P4** ✅ | **API client**: DTOs, `FilmcaseClient`, `ServerEndpoints` (LAN ↔ Tailscale failover), pin *decision* logic (explicit approval, never silent), `HTTPTransport`, `TokenStore`/`PinStore` protocols. | Cloud | Cloud | `URLProtocol` stub tests against JSON recorded from P0; failover and pin-mismatch scenarios. |
+| **P4b** ✅ | **Connection + workflows**: `CameraConnection` state machine, `SlotBackup` (backup → push → verify → restore), `CollectionPush` (ordering, inter-slot delay, partial failure). | Cloud | Cloud | Table-driven transition tests; workflow tests against `FakePTPDevice` + `TestClock`, including stall → recover → cursor restored. |
 | **P4c** | **View models** (`@MainActor @Observable`), all features. | Cloud | Cloud | Swift Testing on Linux: state for loading/empty/error/offline, intents, push progress, backup prompt. |
-| **S1** | **Spike app: ImageCaptureCore on X-T50.** Minimal SwiftUI target in `ios/Spikes/USBSpike`: authorize, browse, open session, read `0xD18C`/`0xD18D`/`0xD192` for C1–C7, write C7's name, read it back, time every call, export a log. | Cloud | Mac + camera | Results in `docs/ios_usb_spike.md` (written by the lead from your pasted log). |
+| **S1** ✍️ | **Spike app: ImageCaptureCore on X-T50.** Minimal SwiftUI target in `ios/Spikes/USBSpike`: authorize, browse, open session, read `0xD18C`/`0xD18D`/`0xD192` for C1–C7, write C7's name, read it back, time every call, export a log. | Cloud | Mac + camera | Results in `docs/ios_usb_spike.md` (written by the lead from your pasted log). |
 | **P5** | **ICCameraTransport** (adapter over `CameraTransport`/`PTPDevice`). | Cloud → macOS | CI build + manual | Compiles in CI; manual push to C7, verified (checklist §9). |
-| **P6** | **App shell + library UI**, XcodeGen `ios/project.yml`, SwiftData adapters, onboarding (server URLs → pin → token). | Cloud → macOS | CI | CI: `xcodegen` + `xcodebuild test` (unit + one UI test on the demo flavor: add server → list → detail). |
+| **P6** ✍️ (P6a adapters + shell) | **App shell + library UI**, XcodeGen `ios/project.yml`, SwiftData adapters, onboarding (server URLs → pin → token). | Cloud → macOS | CI | CI: `xcodegen` + `xcodebuild test` (unit + one UI test on the demo flavor: add server → list → detail). |
 | **P7** | **Camera UI**: slot grid, push sheet, backup/restore, collection push. | Cloud → macOS | CI + manual | CI UI test on the `FakePTPDevice` demo flavor; manual full C1–C7 push (checklist §9). |
 | **S2** | **Spike: BLE protocol.** | Cloud (capture scripts + notes template) | Mac + camera | `docs/ble_protocol.md` with captured evidence, or a recorded **no-go**. |
 | **P8** | **BLE / PTP-IP transport** (only if S2 is a go). Protocol logic in FilmcaseKit, socket/CB adapter thin. | Cloud → macOS | Cloud + CI + manual | Push vectors pass through the new transport's fake on Linux; manual verified push. |
@@ -202,18 +202,28 @@ Three routes, in order of preference:
 Each is meant to take minutes, not an afternoon. Everything not listed here is done in the cloud.
 
 ### S1 — USB spike (≈15 min)
-- [ ] `git pull`, then `cd ios && xcodegen && open Filmcase.xcodeproj`, select **USBSpike** scheme, your iPhone, your team for signing.
+- [ ] `git pull`, then `cd ios && xcodegen generate && open Filmcase.xcodeproj`, select **USBSpike** scheme and your iPhone. Optionally put `DEVELOPMENT_TEAM = …` in `ios/Local.xcconfig`, or set the team in Xcode. Full steps: `ios/Spikes/README.md`.
+- [ ] Note your iOS version (an iOS 26.1 beta report says camera authorization stays *not determined*).
 - [ ] X-T50: **Connection setting → USB RAW CONV./BACKUP RESTORE**, direct USB-C ↔ USB-C cable, camera on.
 - [ ] Run, tap **Authorize**, accept the prompt. Tap **Read slots**: C1–C7 names should appear.
+- [ ] If reads fail or time out, flip **Command framing** to *Command only* and repeat.
 - [ ] Tap **Write C7 name** (writes `FCTEST`, reads back, restores the original).
+- [ ] Tap **Stall drill** (20 reads, then recovery if any time out).
 - [ ] Tap **Export log** and paste it into the chat (or AirDrop the file). Note any error codes, especially −21249.
+
+### P6 — first launch against your server (≈5 min)
+- [ ] Run the **Filmcase** scheme. Onboarding: enter LAN URL, Tailscale URL and the `FILMCASE_API_TOKEN` value.
+- [ ] Expect **Trust this certificate?** with a fingerprint; compare it with `openssl x509 -in <server cert> -noout -fingerprint -sha256` on the server, then Trust.
+- [ ] Expect the local-network permission prompt on the first LAN request.
+- [ ] If the connection fails with an ATS / TLS error instead of the trust prompt, paste it: the fix is an ATS exception key in Info.plist.
+- [ ] Turn Wi-Fi off (Tailscale on cellular): the Tailscale host asks for its own trust once, then the library still loads.
 
 ### P5 — first real push (≈10 min)
 - [ ] Same camera setup. Run the **Filmcase** scheme on the phone.
 - [ ] Camera tab → connection pill shows **USB**. Slot grid shows C1–C7.
 - [ ] Pick a recipe → **Send to camera** → **C7** → confirm (a backup is taken automatically).
 - [ ] Expect **Verified**. On the camera, check C7's film sim, WB and name. Shoot one frame.
-- [ ] Tap **Restore C7** and confirm the original is back. Paste the push log if anything differs.
+- [ ] Tap **Restore C7** and confirm the original is back, **including Grain Effect when the original had grain Off** (restore writes raw read-back values; if grain is wrong, report it and the lead adds a grain special case). Paste the push log if anything differs.
 
 ### P7 — full collection push (≈15 min)
 - [ ] Pick a collection with 7 recipes → **Push to camera**, drag to reorder C1–C7, push.
