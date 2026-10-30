@@ -62,16 +62,14 @@ targets:
     platform: iOS
     sources:
       - path: AppTests
+    # The host app already links FilmcaseKit; linking it here too would load two
+    # copies at test time. XcodeGen sets TEST_HOST/BUNDLE_LOADER from the app dependency.
     dependencies:
       - target: Filmcase
-      - package: FilmcaseKit
-        product: FilmcaseKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.filmcase.app.tests
         GENERATE_INFOPLIST_FILE: YES
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Filmcase.app/Filmcase"
-        BUNDLE_LOADER: "$(TEST_HOST)"
 
   USBSpike:
     type: application
