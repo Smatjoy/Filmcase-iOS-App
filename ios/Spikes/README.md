@@ -6,9 +6,8 @@ compile errors first; the `// API:` comments in `ICCameraBridge.swift` name ever
 
 ## Run
 
-1. `cd ios && touch Local.xcconfig` and put `DEVELOPMENT_TEAM = YOURTEAMID` in it (git-ignored).
-   Or set the team later in Xcode, Signing & Capabilities.
-2. `xcodegen generate && open Filmcase.xcodeproj` (install with `brew install xcodegen`).
+1. Optional: put `DEVELOPMENT_TEAM = YOURTEAMID` in `ios/Local.xcconfig` (git-ignored). Otherwise set the team in Xcode, Signing & Capabilities.
+2. `cd ios && xcodegen generate && open Filmcase.xcodeproj` (install with `brew install xcodegen`).
 3. Scheme **USBSpike**, destination: your iPhone (not a simulator; ImageCaptureCore needs real USB).
 4. X-T50: Connection setting -> **USB RAW CONV./BACKUP RESTORE**, direct USB-C to USB-C cable, camera on.
 5. In the app, in order:

@@ -9,14 +9,12 @@ options:
   createIntermediateGroups: true
 
 # Signing: set your team ONCE, outside this file, so regenerating the project keeps it.
-#   Option A (recommended): create ios/Local.xcconfig (git-ignored) containing
-#       DEVELOPMENT_TEAM = YOURTEAMID
-#     The file must exist before `xcodegen generate` (an empty file is fine: `touch Local.xcconfig`).
-#   Option B: set the team in Xcode, Signing & Capabilities (lost whenever the project is regenerated).
+#   Create ios/Local.xcconfig (git-ignored) containing:  DEVELOPMENT_TEAM = YOURTEAMID
+#   Signing.xcconfig includes it only if it exists, so CI and fresh clones need nothing.
 # DEVELOPMENT_TEAM is deliberately NOT set below: a target-level value would override the xcconfig.
 configFiles:
-  Debug: Local.xcconfig
-  Release: Local.xcconfig
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
 
 settings:
   base:

@@ -1,0 +1,5 @@
+// Shared by every configuration. Your signing team lives in the git-ignored
+// Local.xcconfig next to this file (one line: DEVELOPMENT_TEAM = YOURTEAMID).
+// The optional include means a fresh clone and CI still generate and build
+// without it.
+#include? "Local.xcconfig"
