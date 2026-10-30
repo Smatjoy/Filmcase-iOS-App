@@ -40,7 +40,7 @@ public actor ServerEndpoints {
     }
 
     /// The endpoint to use now, probing if nothing is cached.
-    /// - Throws: `.noReachableServer` if none answers, `.pinMismatch` if one presents a changed certificate.
+    /// - Throws: `.noReachableServer` if none answers, `.pinMismatch` / `.unpinnedHost` if one presents a changed or not-yet-approved certificate.
     public func activeEndpoint() async throws -> URL {
         if let cached { return cached }
         let startedAt = generation
@@ -101,9 +101,8 @@ public actor ServerEndpoints {
             return http.statusCode != 502 && http.statusCode != 504 && (http.statusCode < 500 || http.statusCode == 503)
         } catch {
             if isCancellation(error) { throw CancellationError() }
-            if case .pinMismatch = FilmcaseClientError.fromTransport(error, host: base.host() ?? "") {
-                throw FilmcaseClientError.fromTransport(error, host: base.host() ?? "")
-            }
+            let classified = FilmcaseClientError.fromTransport(error, host: base.host() ?? "")
+            if classified.isPinProblem { throw classified }
             return false
         }
     }

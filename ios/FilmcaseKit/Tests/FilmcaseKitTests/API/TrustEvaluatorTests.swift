@@ -6,19 +6,23 @@ struct TrustEvaluatorTests {
     private let first = String(repeating: "ab", count: 32)
     private let second = String(repeating: "cd", count: 32)
 
-    @Test("first use stores the pin and trusts it")
-    func firstUse() async throws {
+    @Test("an unknown host is rejected and nothing is stored")
+    func unpinned() async throws {
         let store = InMemoryPinStore()
         let evaluator = TrustEvaluator(store: store)
         let decision = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
-        #expect(decision == .trustOnFirstUse(fingerprint: first))
-        #expect(store.fingerprint(for: "filmcase.lan") == first)
+        #expect(decision == .unpinned(fingerprint: first))
+        #expect(store.fingerprint(for: "filmcase.lan") == nil)
+        let again = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
+        #expect(again == .unpinned(fingerprint: first))
     }
 
-    @Test("the same fingerprint afterwards is trusted")
-    func sameFingerprint() async throws {
-        let evaluator = TrustEvaluator(store: InMemoryPinStore())
-        _ = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
+    @Test("an approved fingerprint is trusted afterwards")
+    func approved() async throws {
+        let store = InMemoryPinStore()
+        let evaluator = TrustEvaluator(store: store)
+        try await evaluator.approve(host: "filmcase.lan", fingerprint: first)
+        #expect(store.fingerprint(for: "filmcase.lan") == first)
         let decision = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
         #expect(decision == .trusted)
     }
@@ -27,7 +31,7 @@ struct TrustEvaluatorTests {
     func mismatch() async throws {
         let store = InMemoryPinStore()
         let evaluator = TrustEvaluator(store: store)
-        _ = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
+        try await evaluator.approve(host: "filmcase.lan", fingerprint: first)
         let decision = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: second)
         #expect(decision == .mismatch(expected: first, presented: second))
         #expect(store.fingerprint(for: "filmcase.lan") == first)
@@ -38,9 +42,10 @@ struct TrustEvaluatorTests {
     @Test("pins are per host")
     func perHost() async throws {
         let evaluator = TrustEvaluator(store: InMemoryPinStore())
-        _ = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
+        try await evaluator.approve(host: "filmcase.lan", fingerprint: first)
         let other = try await evaluator.evaluate(host: "filmcase.tailnet.ts.net", presentedFingerprintSHA256Hex: second)
-        #expect(other == .trustOnFirstUse(fingerprint: second))
+        #expect(other == .unpinned(fingerprint: second))
+        try await evaluator.approve(host: "filmcase.tailnet.ts.net", fingerprint: second)
         let lan = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
         let tailnet = try await evaluator.evaluate(host: "filmcase.tailnet.ts.net", presentedFingerprintSHA256Hex: second)
         #expect(lan == .trusted)
@@ -52,18 +57,18 @@ struct TrustEvaluatorTests {
     @Test("case and separators in the fingerprint and host do not matter")
     func normalization() async throws {
         let evaluator = TrustEvaluator(store: InMemoryPinStore())
-        _ = try await evaluator.evaluate(host: "Filmcase.LAN", presentedFingerprintSHA256Hex: "AB:AB:ab ab")
+        try await evaluator.approve(host: "Filmcase.LAN", fingerprint: "AB:AB:ab ab")
         let decision = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: "abababab")
         #expect(decision == .trusted)
     }
 
-    @Test("forgetting a host makes the next connection first-use again")
+    @Test("forgetting a host makes it unpinned again")
     func forget() async throws {
         let evaluator = TrustEvaluator(store: InMemoryPinStore())
-        _ = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: first)
+        try await evaluator.approve(host: "filmcase.lan", fingerprint: first)
         try await evaluator.forget(host: "filmcase.lan")
         let decision = try await evaluator.evaluate(host: "filmcase.lan", presentedFingerprintSHA256Hex: second)
-        #expect(decision == .trustOnFirstUse(fingerprint: second))
+        #expect(decision == .unpinned(fingerprint: second))
     }
 }
 
@@ -71,7 +76,7 @@ struct TrustEvaluatorTests {
 struct TokenStoreTests {
     @Test("in-memory store saves and deletes")
     func roundTrip() async throws {
-        let store = InMemoryTokenStore()
+        let store: any TokenStore = InMemoryTokenStore()
         #expect(try await store.token() == nil)
         try await store.save(token: "abc")
         #expect(try await store.token() == "abc")

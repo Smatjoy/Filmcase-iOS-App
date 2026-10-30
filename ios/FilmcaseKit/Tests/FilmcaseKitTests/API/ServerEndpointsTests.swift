@@ -174,6 +174,23 @@ struct ServerEndpointsTests {
         #expect(rig.tailscale.requests.isEmpty)
     }
 
+    @Test("an unpinned host at probe time stops the search and carries the fingerprint")
+    func unpinnedAtProbe() async {
+        let rig = APIRig(lan: { _ in
+            .failure(URLError(.serverCertificateUntrusted, userInfo: [
+                NSUnderlyingErrorKey: UnpinnedHostError(host: "lan.test", fingerprint: "abcd"),
+            ]))
+        })
+        let error = await clientError { try await rig.endpoints.activeEndpoint() }
+        guard case let .unpinnedHost(host, fingerprint)? = error else {
+            Issue.record("expected unpinnedHost, got \(String(describing: error))")
+            return
+        }
+        #expect(host == "lan.test")
+        #expect(fingerprint == "abcd")
+        #expect(rig.tailscale.requests.isEmpty)
+    }
+
     @Test("update(endpoints:) replaces the order and forgets the cache")
     func updateEndpoints() async throws {
         let rig = APIRig()

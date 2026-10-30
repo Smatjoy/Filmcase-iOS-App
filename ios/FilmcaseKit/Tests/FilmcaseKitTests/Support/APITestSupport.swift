@@ -37,6 +37,7 @@ extension FilmcaseClientError {
         case .transport: "transport"
         case .decoding: "decoding"
         case .pinMismatch: "pinMismatch"
+        case .unpinnedHost: "unpinnedHost"
         case .noReachableServer: "noReachableServer"
         }
     }

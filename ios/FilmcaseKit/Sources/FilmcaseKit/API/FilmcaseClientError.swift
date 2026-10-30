@@ -20,6 +20,8 @@ public enum FilmcaseClientError: Error, Sendable {
     case decoding(String)
     /// The server presented a certificate that differs from the pinned one.
     case pinMismatch(host: String)
+    /// The host has no pin yet; the user must approve *fingerprint* first.
+    case unpinnedHost(host: String, fingerprint: String)
     /// No configured endpoint answered.
     case noReachableServer
 }
@@ -44,17 +46,27 @@ extension FilmcaseClientError {
         }
     }
 
-    /// Classify a thrown URLSession error: a pin mismatch (which must never fail
+    /// Classify a thrown URLSession error: a pin problem (which must never fail
     /// over to another endpoint) or an ordinary transport failure.
     static func fromTransport(_ error: any Error, host: String) -> FilmcaseClientError {
-        if let mismatch = error as? PinMismatchError {
-            return .pinMismatch(host: mismatch.host)
-        }
-        let underlying = (error as NSError).userInfo[NSUnderlyingErrorKey]
-        if let mismatch = underlying as? PinMismatchError {
-            return .pinMismatch(host: mismatch.host)
+        for candidate in [error, (error as NSError).userInfo[NSUnderlyingErrorKey] as? any Error] {
+            if let mismatch = candidate as? PinMismatchError {
+                return .pinMismatch(host: mismatch.host)
+            }
+            if let unpinned = candidate as? UnpinnedHostError {
+                return .unpinnedHost(host: unpinned.host, fingerprint: unpinned.fingerprint)
+            }
         }
         return .transport(error)
+    }
+
+    /// True for the errors that mean "this server's certificate is not trusted",
+    /// which surface to the user instead of failing over.
+    var isPinProblem: Bool {
+        switch self {
+        case .pinMismatch, .unpinnedHost: true
+        default: false
+        }
     }
 }
 

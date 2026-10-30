@@ -32,8 +32,11 @@ public final class InMemoryPinStore: PinStore {
 }
 
 public enum TrustDecision: Sendable, Equatable {
-    /// No pin existed; the presented fingerprint was stored. Accept the connection.
-    case trustOnFirstUse(fingerprint: String)
+    /// No pin exists for the host. Reject, and let the user approve *fingerprint*
+    /// (`FilmcaseClientError.unpinnedHost`), then call `approve(host:fingerprint:)`.
+    /// Never stored implicitly: automatic LAN/Tailscale failover reaches hosts
+    /// without the user watching, on whatever network the phone is on.
+    case unpinned(fingerprint: String)
     /// Matches the stored pin. Accept.
     case trusted
     /// Differs from the stored pin. Reject, and tell the user (`FilmcaseClientError.pinMismatch`).
@@ -46,16 +49,18 @@ public enum TrustDecision: Sendable, Equatable {
 /// `NSURLAuthenticationMethodServerTrust` challenge, take the leaf certificate's
 /// DER bytes, compute SHA-256 with CryptoKit, hex-encode it, and call
 /// `evaluate(host:presentedFingerprintSHA256Hex:)` with the challenge's
-/// `protectionSpace.host`. Accept the credential for `.trustOnFirstUse` and
-/// `.trusted`; cancel the challenge for `.mismatch`, failing the request with a
-/// `URLError` whose underlying error is `PinMismatchError`. System trust
+/// `protectionSpace.host`. Accept the credential only for `.trusted`. Cancel the
+/// challenge otherwise, failing the request with a `URLError` whose underlying
+/// error is `UnpinnedHostError` (for `.unpinned`) or `PinMismatchError` (for
+/// `.mismatch`). System trust
 /// evaluation is not consulted: the self-hosted server may use a private CA or a
 /// self-signed certificate, and the pin is the trust anchor.
 ///
 /// Pins are per host, because the LAN and Tailscale names may present different
 /// certificates. Hosts and fingerprints are compared case-insensitively, and
-/// fingerprints ignore `:` and whitespace separators. An actor, so two
-/// simultaneous first connections to one host cannot both win.
+/// fingerprints ignore `:` and whitespace separators. "First use" is the user's
+/// explicit approval of the fingerprint shown during onboarding, never a silent
+/// store on first contact.
 public actor TrustEvaluator {
     private let store: any PinStore
 
@@ -67,15 +72,20 @@ public actor TrustEvaluator {
         let host = Self.normalizedHost(host)
         let presented = Self.normalizedFingerprint(presentedFingerprintSHA256Hex)
         guard let expected = try store.fingerprint(for: host) else {
-            try store.setFingerprint(presented, for: host)
-            return .trustOnFirstUse(fingerprint: presented)
+            return .unpinned(fingerprint: presented)
         }
         if expected == presented { return .trusted }
         return .mismatch(expected: expected, presented: presented)
     }
 
-    /// Forget the pin for *host*, so the next connection is trust-on-first-use
-    /// again. Only for an explicit user action after a legitimate certificate change.
+    /// Pin *fingerprint* for *host*. Only for an explicit user action: approving
+    /// the fingerprint an `.unpinned` decision presented.
+    public func approve(host: String, fingerprint: String) throws {
+        try store.setFingerprint(Self.normalizedFingerprint(fingerprint), for: Self.normalizedHost(host))
+    }
+
+    /// Forget the pin for *host*, so the next connection is unpinned again. Only
+    /// for an explicit user action after a legitimate certificate change.
     public func forget(host: String) throws {
         try store.removeFingerprint(for: Self.normalizedHost(host))
     }
@@ -98,5 +108,17 @@ public struct PinMismatchError: Error, Sendable, Equatable {
 
     public init(host: String) {
         self.host = host
+    }
+}
+
+/// Raised by the Apple adapter's challenge delegate when `TrustEvaluator`
+/// answered `.unpinned`, carrying the fingerprint for the user to approve.
+public struct UnpinnedHostError: Error, Sendable, Equatable {
+    public let host: String
+    public let fingerprint: String
+
+    public init(host: String, fingerprint: String) {
+        self.host = host
+        self.fingerprint = fingerprint
     }
 }
