@@ -274,18 +274,29 @@ class ImageFile(generic.View):
         self.image = shortcuts.get_object_or_404(models.Image, pk=kwargs["image_id"])
 
     def get(self, request: http.HttpRequest, image_id: int) -> http.HttpResponseBase:
-        path = Path(self.image.filepath)
-        if not path.is_file():
+        return serve_image_file(image=self.image, width_param=request.GET.get("width"))
+
+
+def serve_image_file(*, image: models.Image, width_param: str | None) -> http.HttpResponseBase:
+    """
+    Serve *image*'s file, resized to *width_param* when one is given.
+
+    Shared by the browser's image route and the token-protected API, so both serve
+    the same bytes.
+
+    :raises Http404: if the file is missing on disk or *width_param* is not a valid integer.
+    """
+    path = Path(image.filepath)
+    if not path.is_file():
+        raise http.Http404
+    if width_param:
+        try:
+            width = int(width_param)
+        except ValueError:
             raise http.Http404
-        width_param = request.GET.get("width")
-        if width_param:
-            try:
-                width = int(width_param)
-            except ValueError:
-                raise http.Http404
-            return _resized_image_response(path, width)
-        content_type, _ = mimetypes.guess_type(self.image.filepath)
-        return http.FileResponse(path.open("rb"), content_type=content_type or "image/jpeg")
+        return _resized_image_response(path, width)
+    content_type, _ = mimetypes.guess_type(image.filepath)
+    return http.FileResponse(path.open("rb"), content_type=content_type or "image/jpeg")
 
 
 class SetImageRating(generic.View):

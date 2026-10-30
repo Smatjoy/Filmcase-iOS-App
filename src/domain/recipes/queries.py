@@ -933,6 +933,8 @@ class RecipeGalleryPage:
     next_page_number: int | None  # None when has_next is False
     has_previous: bool
     number: int
+    previous_page_number: int | None = None  # None when has_previous is False
+    total_count: int = 0                     # recipes matching the filters, across all pages
 
 
 @attrs.frozen
@@ -998,6 +1000,8 @@ def get_recipe_gallery_data(
         next_page_number=raw_page.next_page_number() if raw_page.has_next() else None,
         has_previous=raw_page.has_previous(),
         number=raw_page.number,
+        previous_page_number=raw_page.previous_page_number() if raw_page.has_previous() else None,
+        total_count=raw_page.paginator.count,
     )
     return RecipeGalleryData(
         page_obj=page,
@@ -1056,6 +1060,21 @@ def get_recipes_in_version_line(*, recipe_id: int) -> VersionLineResult:
         ))
     recipes = tuple(version_recipes)
     return VersionLineResult(recipes=recipes)
+
+
+def get_version_positions(*, recipe_ids: Sequence[int]) -> dict[int, int]:
+    """
+    Map each of *recipe_ids* that belongs to a VERSION_LINE group to its position
+    in that line. Recipes outside any version line are absent from the mapping.
+    """
+    return {
+        row["recipe_id"]: row["position"]
+        for row in models.RecipeGroupMember.objects.filter(
+            recipe_id__in=list(recipe_ids),
+            group_type=models.RecipeGroup.GROUP_TYPE_VERSION_LINE,
+        ).values("recipe_id", "position")
+        if row["position"] is not None
+    }
 
 
 _MOVE_SEARCH_LIMIT = 30

@@ -18,6 +18,7 @@ x-filmcase-env: &filmcase-env
   # interpolate ${...} into this file; it does not forward the file's contents into the
   # containers. A tuning value written to .env but absent from this block is silently
   # ignored, and the entrypoint quietly uses its own default instead.
+  FILMCASE_API_TOKEN: ${FILMCASE_API_TOKEN:-}
   FILMCASE_WEB_WORKERS: ${FILMCASE_WEB_WORKERS:-2}
   FILMCASE_WEB_THREADS: ${FILMCASE_WEB_THREADS:-4}
   FILMCASE_WORKER_CONCURRENCY: ${FILMCASE_WORKER_CONCURRENCY:-8}
