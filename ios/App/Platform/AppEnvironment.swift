@@ -168,13 +168,6 @@ final class AppEnvironment {
         await cameraModel.observe()
     }
 
-    /// The demo camera is always "plugged in", so connect it at launch. A real camera waits
-    /// for the person to tap Connect in the Camera tab.
-    func connectDemoCameraIfNeeded() async {
-        guard cameraMode == .demo else { return }
-        await cameraModel.connect()
-    }
-
     /// Keep the endpoint cache honest while the app runs. Call from a `.task` so it is cancelled with the view.
     func observePathChanges() async {
         await endpoints.observe(pathEvents)

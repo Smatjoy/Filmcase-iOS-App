@@ -6,8 +6,7 @@ import SwiftUI
 struct CameraTab: View {
     private let environment: any CameraFeatureEnvironment
 
-    @State private var model: CameraModel?
-    @State private var backups: CameraBackupsModel?
+    @State private var backups: BackupsModel?
     @State private var setupError: String?
 
     init(environment: some CameraFeatureEnvironment) {
@@ -17,32 +16,35 @@ struct CameraTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if let model {
-                    CameraContent(model: model, backups: backups)
-                } else if let setupError {
-                    ContentUnavailableView(
-                        "Camera unavailable", systemImage: "exclamationmark.triangle",
-                        description: Text(setupError))
-                } else {
-                    ProgressView().frame(maxWidth: .infinity)
+                // The shared CameraModel is observed for the app's lifetime by RootView,
+                // and connects by itself when a camera is plugged in.
+                CameraContent(model: environment.cameraModel, backups: backups)
+                if let setupError {
+                    Text(setupError).font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
         .navigationTitle("Camera")
-        .task { await run() }
+        .toolbar {
+            // A toolbar control, so the system gives it glass.
+            ToolbarItem(placement: .primaryAction) {
+                Button("Refresh slots", systemImage: "arrow.clockwise") {
+                    Task { await environment.cameraModel.refreshSlots() }
+                }
+                .disabled(!environment.cameraModel.isReady)
+            }
+        }
+        .refreshable { await environment.cameraModel.refreshSlots() }
+        .task { await loadBackups() }
     }
 
-    /// Build the models, then follow the connection until the view goes away.
-    private func run() async {
+    private func loadBackups() async {
         do {
-            let camera = try await environment.makeCameraModel()
-            let workflow = try await environment.makeSlotWorkflow()
-            model = camera
-            backups = CameraBackupsModel(store: environment.backupStore, workflow: workflow)
-            await backups?.load()
-            await camera.observe()
+            let model = BackupsModel(store: environment.backupStore, workflow: try await environment.makeSlotWorkflow())
+            backups = model
+            await model.load()
         } catch {
             setupError = UserMessages.text(for: error)
         }
@@ -51,23 +53,10 @@ struct CameraTab: View {
 
 private struct CameraContent: View {
     let model: CameraModel
-    let backups: CameraBackupsModel?
+    let backups: BackupsModel?
 
     var body: some View {
-        HStack {
-            ConnectionPillView(pill: model.pill)
-            Spacer()
-            Button {
-                Task { await model.refreshSlots() }
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-                    .labelStyle(.iconOnly)
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            .buttonStyle(.glass)
-            .disabled(!model.isReady)
-            .accessibilityLabel("Refresh slots")
-        }
+        ConnectionPillView(pill: model.pill)
 
         stateSection
 
@@ -83,16 +72,10 @@ private struct CameraContent: View {
     @ViewBuilder
     private var stateSection: some View {
         switch model.connectionState {
-        case .idle:
-            ConnectPrompt(model: model, message: UserMessages.text(for: model.connectionState))
-        case .unauthorized:
+        case .idle, .unauthorized, .lost:
             ConnectPrompt(
                 model: model, message: UserMessages.text(for: model.connectionState),
-                title: "Try again")
-        case .lost:
-            ConnectPrompt(
-                model: model, message: UserMessages.text(for: model.connectionState),
-                title: "Reconnect")
+                showsButton: model.autoConnectSuspension != nil)
         case .awaitingAuthorization, .searching, .opening:
             ProgressView(UserMessages.text(for: model.connectionState))
                 .frame(maxWidth: .infinity)
@@ -116,16 +99,20 @@ private struct CameraContent: View {
     }
 }
 
+/// The connection's status. A camera that is plugged in connects by itself; the button
+/// appears only after the person declined access or disconnected.
 private struct ConnectPrompt: View {
     let model: CameraModel
     let message: String
-    var title = "Connect"
+    let showsButton: Bool
 
     var body: some View {
         VStack(spacing: 12) {
-            Text(message).font(.headline)
-            Button(title) { Task { await model.connect() } }
-                .buttonStyle(.glassProminent)
+            Text(message).font(.headline).multilineTextAlignment(.center)
+            if showsButton {
+                Button("Connect") { Task { await model.connect() } }
+                    .buttonStyle(.borderedProminent)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -134,7 +121,7 @@ private struct ConnectPrompt: View {
 }
 
 private struct BackupsSection: View {
-    let backups: CameraBackupsModel
+    let backups: BackupsModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

@@ -35,7 +35,6 @@ struct RootView: View {
         }
         .task { await environment.observePathChanges() }
         .task { await environment.observeCamera() }
-        .task { await environment.connectDemoCameraIfNeeded() }
         .task { showsOnboarding = await environment.needsOnboarding() }
         .sheet(isPresented: $showsOnboarding) {
             OnboardingView(environment: environment, onCancel: nil) {

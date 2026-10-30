@@ -83,7 +83,7 @@ private struct CollectionPushContent: View {
                 Label(message ?? "The push stopped.", systemImage: "cable.connector.slash")
                     .foregroundStyle(.orange)
                 Button("Resume") { Task { await model.resume() } }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.borderedProminent)
             }
         case .editing, .running, .finished, .restoring, .restored:
             EmptyView()
@@ -100,8 +100,7 @@ private struct CollectionPushContent: View {
                     .accessibilityAction(named: "Clear slot") { model.clear(slot: row.slot) }
             }
             .onMove { source, destination in
-                // The model swaps; rows are slot-ordered, so translate the list move to slots.
-                for from in source { model.move(from: from + 1, to: destination > from ? destination : destination + 1) }
+                model.moveRows(fromOffsets: source, toOffset: destination)
             }
         } header: {
             Text("Slots")
@@ -148,7 +147,7 @@ private struct CollectionPushContent: View {
             switch model.phase {
             case .editing:
                 Button("Push to camera") { Task { await model.start() } }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.borderedProminent)
                     .disabled(!model.canStart)
             case .running, .restoring:
                 ProgressView(model.phase == .restoring ? "Restoring" : "Pushing")
@@ -171,33 +170,35 @@ private struct SlotRowView: View {
             Text(row.title)
                 .font(.headline.monospaced())
                 .frame(minWidth: 36, alignment: .leading)
-            Text(row.item?.name ?? "Empty")
+            Text(row.displayName)
                 .foregroundStyle(row.item == nil ? .secondary : .primary)
             Spacer()
-            statusView
+            if let text = status?.displayText {
+                Text(text).font(.caption).foregroundStyle(.secondary)
+            }
+            StatusIcon(indicator: status?.indicator ?? .none)
+                .accessibilityLabel(status?.accessibilityText ?? "")
         }
         .accessibilityElement(children: .combine)
     }
+}
 
-    @ViewBuilder
-    private var statusView: some View {
-        switch status {
-        case .none, .waiting?:
+/// Icon and colour for a status; the wording comes from the model.
+private struct StatusIcon: View {
+    let indicator: CollectionPushModel.StatusIndicator
+
+    var body: some View {
+        switch indicator {
+        case .none:
             EmptyView()
-        case .pushing?:
-            ProgressView().accessibilityLabel("Pushing")
-        case .done(let result)?:
-            switch result {
-            case .verified:
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    .accessibilityLabel("Verified")
-            case .partiallyFailed(let names):
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    .accessibilityLabel("Did not take: \(names.joined(separator: ", "))")
-            case .connectionLost:
-                Image(systemName: "cable.connector.slash").foregroundStyle(.red)
-                    .accessibilityLabel("Connection lost")
-            }
+        case .progress:
+            ProgressView()
+        case .success:
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+        case .warning:
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+        case .failure:
+            Image(systemName: "cable.connector.slash").foregroundStyle(.red)
         }
     }
 }

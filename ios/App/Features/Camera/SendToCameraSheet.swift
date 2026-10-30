@@ -8,7 +8,6 @@ struct SendToCameraSheet: View {
     private let environment: any CameraFeatureEnvironment
 
     @State private var model: PushSheetModel?
-    @State private var camera: CameraModel?
     @State private var setupError: String?
     @Environment(\.dismiss) private var dismiss
 
@@ -20,14 +19,14 @@ struct SendToCameraSheet: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let model, let camera {
-                    PushSheetContent(model: model, camera: camera)
+                if let model {
+                    PushSheetContent(model: model)
                 } else if let setupError {
                     ContentUnavailableView(
                         "Cannot reach the camera", systemImage: "exclamationmark.triangle",
                         description: Text(setupError))
                 } else {
-                    ProgressView("Reading slots").frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .navigationTitle("Send to camera")
@@ -35,20 +34,21 @@ struct SendToCameraSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
+                        .disabled(model?.isWorking ?? false)
                 }
             }
         }
+        .interactiveDismissDisabled(model?.isWorking ?? false)
         .task { await load() }
     }
 
+    /// The sheet reads slots from the shared CameraModel, which RootView already observes,
+    /// so it never observes the camera itself.
     private func load() async {
         do {
-            let camera = try await environment.makeCameraModel()
-            await camera.refreshSlots()
-            let workflow = try await environment.makeSlotWorkflow()
-            self.camera = camera
-            model = PushSheetModel(recipe: recipe, slots: camera.slots, workflow: workflow)
-            setupError = camera.errorMessage
+            model = PushSheetModel(
+                recipe: recipe, camera: environment.cameraModel,
+                workflow: try await environment.makeSlotWorkflow())
         } catch {
             setupError = UserMessages.text(for: error)
         }
@@ -57,7 +57,6 @@ struct SendToCameraSheet: View {
 
 private struct PushSheetContent: View {
     let model: PushSheetModel
-    let camera: CameraModel
 
     var body: some View {
         ScrollView {
@@ -94,16 +93,37 @@ private struct PushSheetContent: View {
     private var phaseContent: some View {
         switch model.phase {
         case .choosingSlot, .confirming:
-            Text("Choose a slot. Its current recipe is backed up first.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            SlotGrid(slots: model.slots) { model.choose(slot: $0) }
+            slotPicker
         case .pushing(let slot):
             WorkingView(text: "Backing up and writing C\(slot)")
         case .restoring(let slot):
             WorkingView(text: "Restoring C\(slot)")
         case .finished(let outcome):
-            ResultView(model: model, camera: camera, outcome: outcome)
+            ResultView(model: model, outcome: outcome)
+        }
+    }
+
+    @ViewBuilder
+    private var slotPicker: some View {
+        if let pill = model.pill, !pill.isReady {
+            VStack(spacing: 12) {
+                ConnectionPillView(pill: pill)
+                HowToConnectCard()
+            }
+        } else {
+            switch model.slotsState {
+            case .idle, .loading:
+                ProgressView("Reading slots").frame(maxWidth: .infinity)
+            case .failed(let message):
+                ContentUnavailableView(
+                    "Could not read slots", systemImage: "exclamationmark.triangle",
+                    description: Text(message))
+            case .loaded:
+                Text("Choose a slot. Its current recipe is backed up first.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                SlotGrid(slots: model.slots) { model.choose(slot: $0) }
+            }
         }
     }
 }
@@ -123,7 +143,6 @@ private struct WorkingView: View {
 
 private struct ResultView: View {
     let model: PushSheetModel
-    let camera: CameraModel
     let outcome: PushSheetModel.Outcome
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -135,30 +154,25 @@ private struct ResultView: View {
 
             if model.canRestore {
                 Button("Restore previous recipe") { Task { await model.restore() } }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.bordered)
             }
-            Button("Choose another slot") {
-                Task {
-                    model.chooseAnother()
-                    await camera.refreshSlots()
-                    model.updateSlots(camera.slots)
-                }
-            }
-            .buttonStyle(.glassProminent)
+            Button("Choose another slot") { model.chooseAnother() }
+                .buttonStyle(.borderedProminent)
         }
         .animation(reduceMotion ? nil : .default, value: outcome)
     }
 
+    /// The headline text comes from the model; the view only picks icon and colour.
     @ViewBuilder
     private var resultBody: some View {
         switch outcome.result {
         case .verified:
-            Label("C\(outcome.slot) verified", systemImage: "checkmark.circle.fill")
+            Label(outcome.message, systemImage: "checkmark.circle.fill")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.green)
         case .partiallyFailed:
             VStack(alignment: .leading, spacing: 8) {
-                Label("Some properties did not take", systemImage: "exclamationmark.triangle.fill")
+                Label(outcome.message, systemImage: "exclamationmark.triangle.fill")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.orange)
                 ForEach(outcome.diff) { row in
@@ -167,11 +181,11 @@ private struct ResultView: View {
                 }
             }
         case .connectionLost:
-            Label("The camera connection was lost", systemImage: "cable.connector.slash")
+            Label(outcome.message, systemImage: "cable.connector.slash")
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.red)
-        case .failed(let message):
-            Label(message, systemImage: "xmark.octagon.fill")
+        case .failed:
+            Label(outcome.message, systemImage: "xmark.octagon.fill")
                 .font(.headline)
                 .foregroundStyle(.red)
         }

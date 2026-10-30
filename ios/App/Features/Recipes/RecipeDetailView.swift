@@ -71,8 +71,9 @@ struct RecipeDetailView: View {
                 Label("Send to camera", systemImage: "paperplane")
                     .frame(maxWidth: .infinity)
             }
-            // API: PrimitiveButtonStyle.glassProminent (iOS 26).
-            .buttonStyle(.glassProminent)
+            // In-content primary action: standard prominent style, glass is for controls
+            // and navigation (swiftui-liquid-glass).
+            .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(!model.canSendToCamera)
             if let reason = model.sendBlockedReason {

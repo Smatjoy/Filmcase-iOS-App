@@ -51,7 +51,8 @@ struct SlotCell: View {
     }
 }
 
-/// Connection pill. Glass, because it floats over scrolling content.
+/// Connection status. Read-only content, so a quiet fill rather than glass: glass is for
+/// controls and navigation (swiftui-liquid-glass).
 struct ConnectionPillView: View {
     let pill: ConnectionPill
 
@@ -65,8 +66,7 @@ struct ConnectionPillView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        // API: iOS 26 glassEffect(_:in:); static status, so not interactive.
-        .glassEffect(.regular, in: .capsule)
+        .background(.fill.tertiary, in: .capsule)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Camera connection")
         .accessibilityValue(pill.text)
