@@ -19,8 +19,9 @@ struct RootView: View {
                 CollectionsTab(environment: environment)
             }
             Tab("Camera", systemImage: "camera", value: AppTab.camera) {
-                // CameraTab (P7) is expected to provide its own NavigationStack.
-                CameraTab(environment: environment)
+                NavigationStack {
+                    CameraTab(environment: environment)
+                }
             }
             Tab("Settings", systemImage: "gearshape", value: AppTab.settings) {
                 SettingsTab(environment: environment)
