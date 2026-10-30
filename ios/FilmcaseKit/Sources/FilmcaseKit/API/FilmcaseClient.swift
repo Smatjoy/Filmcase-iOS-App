@@ -34,18 +34,18 @@ public struct RecipeFilters: Sendable, Equatable {
 public struct FilmcaseClient: Sendable {
     private let endpoints: ServerEndpoints
     private let tokenStore: any TokenStore
-    private let session: URLSession
+    private let transport: any HTTPTransport
     private let requestTimeout: TimeInterval
 
     public init(
         endpoints: ServerEndpoints,
         tokenStore: any TokenStore,
-        session: URLSession,
+        transport: any HTTPTransport,
         requestTimeout: TimeInterval = 30
     ) {
         self.endpoints = endpoints
         self.tokenStore = tokenStore
-        self.session = session
+        self.transport = transport
         self.requestTimeout = requestTimeout
     }
 
@@ -130,7 +130,7 @@ public struct FilmcaseClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await transport.send(request)
         } catch {
             if isCancellation(error) { throw CancellationError() }
             throw FilmcaseClientError.fromTransport(error, host: base.host() ?? "")

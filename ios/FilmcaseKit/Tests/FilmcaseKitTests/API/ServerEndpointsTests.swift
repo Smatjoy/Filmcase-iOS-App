@@ -130,8 +130,8 @@ struct ServerEndpointsTests {
     func singleEndpoint() async {
         let server = StubServer(name: "solo", handler: { request in isProbe(request) ? .fixture("recipe_list") : .transportError() })
         let session = StubRegistry.makeSession()
-        let endpoints = ServerEndpoints(endpoints: [server.baseURL], session: session, clock: TestClock())
-        let client = FilmcaseClient(endpoints: endpoints, tokenStore: InMemoryTokenStore(token: "t"), session: session)
+        let endpoints = ServerEndpoints(endpoints: [server.baseURL], transport: session, clock: TestClock())
+        let client = FilmcaseClient(endpoints: endpoints, tokenStore: InMemoryTokenStore(token: "t"), transport: session)
         let error = await clientError { try await client.recipes() }
         #expect(error?.kind == "transport")
     }

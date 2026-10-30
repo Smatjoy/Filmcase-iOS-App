@@ -138,8 +138,8 @@ struct FilmcaseClientTests {
                 : .failure(URLError(.serverCertificateUntrusted, userInfo: [NSUnderlyingErrorKey: PinMismatchError(host: "pinned.test")]))
         }
         let session = StubRegistry.makeSession()
-        let endpoints = ServerEndpoints(endpoints: [lan.baseURL, tailscale.baseURL], session: session, clock: TestClock())
-        let client = FilmcaseClient(endpoints: endpoints, tokenStore: InMemoryTokenStore(token: "t"), session: session)
+        let endpoints = ServerEndpoints(endpoints: [lan.baseURL, tailscale.baseURL], transport: session, clock: TestClock())
+        let client = FilmcaseClient(endpoints: endpoints, tokenStore: InMemoryTokenStore(token: "t"), transport: session)
 
         let error = await clientError { try await client.recipes() }
 

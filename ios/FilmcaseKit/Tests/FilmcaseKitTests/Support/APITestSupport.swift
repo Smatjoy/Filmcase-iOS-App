@@ -82,11 +82,11 @@ struct APIRig {
         let session = StubRegistry.makeSession()
         endpoints = ServerEndpoints(
             endpoints: [self.lan.baseURL, self.tailscale.baseURL],
-            session: session,
+            transport: session,
             probeTimeout: probeTimeout,
             clock: clock
         )
         tokenStore = InMemoryTokenStore(token: token)
-        client = FilmcaseClient(endpoints: endpoints, tokenStore: tokenStore, session: session)
+        client = FilmcaseClient(endpoints: endpoints, tokenStore: tokenStore, transport: session)
     }
 }

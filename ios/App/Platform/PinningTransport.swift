@@ -1,19 +1,16 @@
 // Apple-only. Not compiled on Linux; targets Xcode 26 / Swift 6 strict concurrency.
 //
-// FilmcaseClient and ServerEndpoints take a plain `URLSession` (a final class, so it
-// cannot be wrapped), which gives the app no place to re-throw a recorded pin
-// failure. The workaround: the session the client sees is configured with
-// `PinningURLProtocol`, which forwards each request to the inner session owned by
-// `PinningTransport` (the one with the pinning delegate) and delivers either the
-// response or the recorded pin error back to the caller. Remove this indirection if
-// FilmcaseClient ever takes a transport protocol instead of a URLSession.
+// The `HTTPTransport` FilmcaseClient and ServerEndpoints use in the app. URLSession
+// reports a cancelled server-trust challenge as a bare URLError(.cancelled), so the
+// pinning delegate records why it cancelled, per task, and this transport re-throws
+// that reason as the FilmcaseKit contract expects.
 
 import FilmcaseKit
 import Foundation
 import Synchronization
 
-/// The inner, pinning URLSession plus the re-throw of recorded pin failures.
-final class PinningTransport: Sendable {
+/// A pinning URLSession plus the re-throw of recorded pin failures.
+final class PinningTransport: HTTPTransport {
     private let session: URLSession
     private let failures: PinFailureLog
     // Held only so the session's delegate stays alive and is documented here:
@@ -31,7 +28,7 @@ final class PinningTransport: Sendable {
         self.delegate = delegate
     }
 
-    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+    func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
         let handle = TaskHandle()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Data, URLResponse), any Error>) in
@@ -68,49 +65,4 @@ final class PinningTransport: Sendable {
 
 private final class TaskHandle: Sendable {
     let task = Mutex<URLSessionTask?>(nil)
-}
-
-/// Forwards every `https` request of the sessions that list it in
-/// `URLSessionConfiguration.protocolClasses` to the installed `PinningTransport`.
-/// Never registered globally, so the inner session is not intercepted.
-final class PinningURLProtocol: URLProtocol, @unchecked Sendable {
-    private static let transport = Mutex<PinningTransport?>(nil)
-    private let loading = Mutex<Task<Void, Never>?>(nil)
-
-    static func install(_ transport: PinningTransport) {
-        Self.transport.withLock { $0 = transport }
-    }
-
-    override class func canInit(with request: URLRequest) -> Bool {
-        request.url?.scheme == "https"
-    }
-
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let transport = Self.transport.withLock({ $0 }) else {
-            client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
-            return
-        }
-        let request = request
-        let task = Task { [self] in
-            do {
-                let (data, response) = try await transport.data(for: request)
-                // API: URLProtocolClient.urlProtocol(_:didReceive:cacheStoragePolicy:), .urlProtocol(_:didLoad:), .urlProtocolDidFinishLoading(_:)
-                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-                client?.urlProtocol(self, didLoad: data)
-                client?.urlProtocolDidFinishLoading(self)
-            } catch {
-                // API: URLProtocolClient.urlProtocol(_:didFailWithError:)
-                client?.urlProtocol(self, didFailWithError: error)
-            }
-        }
-        loading.withLock { $0 = task }
-    }
-
-    override func stopLoading() {
-        loading.withLock { $0?.cancel() }
-    }
 }

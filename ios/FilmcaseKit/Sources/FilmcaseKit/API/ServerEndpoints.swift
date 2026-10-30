@@ -21,7 +21,7 @@ public protocol NetworkPathEvents: Sendable {
 /// host after a certificate change would defeat the pin.
 public actor ServerEndpoints {
     public private(set) var endpoints: [URL]
-    private let session: URLSession
+    private let transport: any HTTPTransport
     private let probeTimeout: Duration
     private let clock: any FilmcaseClock
     private var cached: URL?
@@ -29,12 +29,12 @@ public actor ServerEndpoints {
 
     public init(
         endpoints: [URL],
-        session: URLSession,
+        transport: any HTTPTransport,
         probeTimeout: Duration = .seconds(2),
         clock: any FilmcaseClock = SystemClock()
     ) {
         self.endpoints = endpoints
-        self.session = session
+        self.transport = transport
         self.probeTimeout = probeTimeout
         self.clock = clock
     }
@@ -92,10 +92,10 @@ public actor ServerEndpoints {
 
     private func probe(_ base: URL) async throws -> Bool {
         let request = URLRequest(url: apiURL(base, path: "/api/v1/recipes/", query: [URLQueryItem(name: "page_size", value: "1")]))
-        let session = session
+        let transport = transport
         do {
             let (_, response) = try await withTimeout(probeTimeout, clock: clock) {
-                try await session.data(for: request)
+                try await transport.send(request)
             }
             guard let http = response as? HTTPURLResponse else { return false }
             return http.statusCode != 502 && http.statusCode != 504 && (http.statusCode < 500 || http.statusCode == 503)

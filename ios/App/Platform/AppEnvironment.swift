@@ -21,18 +21,13 @@ final class AppEnvironment: Sendable {
         endpointSettings: EndpointSettings
     ) {
         let trust = TrustEvaluator(store: pinStore)
-        PinningURLProtocol.install(PinningTransport(evaluator: trust))
+        let transport = PinningTransport(evaluator: trust)
 
-        let configuration = URLSessionConfiguration.ephemeral // API: URLSessionConfiguration.ephemeral
-        // API: URLSessionConfiguration.protocolClasses: [AnyClass]?
-        configuration.protocolClasses = [PinningURLProtocol.self]
-        let session = URLSession(configuration: configuration) // API: URLSession.init(configuration:)
-
-        let endpoints = ServerEndpoints(endpoints: endpointSettings.urls(), session: session)
+        let endpoints = ServerEndpoints(endpoints: endpointSettings.urls(), transport: transport)
         self.tokenStore = tokenStore
         self.trust = trust
         self.endpoints = endpoints
-        self.client = FilmcaseClient(endpoints: endpoints, tokenStore: tokenStore, session: session)
+        self.client = FilmcaseClient(endpoints: endpoints, tokenStore: tokenStore, transport: transport)
         self.endpointSettings = endpointSettings
         self.pathEvents = pathEvents
     }

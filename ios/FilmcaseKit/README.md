@@ -24,7 +24,7 @@ P3 adds `Camera/` (`PTPDevice`, `CameraSleeper`/`CameraRuntime`, operations with
 ## API client (P4)
 
 `Sources/FilmcaseKit/API/` holds the DTOs for `/api/v1/`, `FilmcaseClient`, `ServerEndpoints`
-(ordered LAN/Tailscale list, probe, failover, `NetworkPathEvents`), the TOFU decision logic
+(ordered LAN/Tailscale list, probe, failover, `NetworkPathEvents`), the `HTTPTransport` protocol both send through (URLSession conforms; the app's pinning transport implements it), the TOFU decision logic
 (`TrustEvaluator`, `PinStore`) and `TokenStore`. Apple adapters (Keychain, SecTrust delegate,
 `NWPathMonitor`) implement those protocols later.
 
