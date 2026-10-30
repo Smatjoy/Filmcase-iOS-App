@@ -1,0 +1,7 @@
+*.xcodeproj
+build/
+DerivedData/
+Local.xcconfig
+.generated/
+xcuserdata/
+.DS_Store

@@ -1,0 +1,69 @@
+# XcodeGen spec. Generate with:  cd ios && xcodegen generate && open Filmcase.xcodeproj
+# The generated Filmcase.xcodeproj is git-ignored.
+name: Filmcase
+
+options:
+  bundleIdPrefix: dev.filmcase
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+# Signing: set your team ONCE, outside this file, so regenerating the project keeps it.
+#   Option A (recommended): create ios/Local.xcconfig (git-ignored) containing
+#       DEVELOPMENT_TEAM = YOURTEAMID
+#     The file must exist before `xcodegen generate` (an empty file is fine: `touch Local.xcconfig`).
+#   Option B: set the team in Xcode, Signing & Capabilities (lost whenever the project is regenerated).
+# DEVELOPMENT_TEAM is deliberately NOT set below: a target-level value would override the xcconfig.
+configFiles:
+  Debug: Local.xcconfig
+  Release: Local.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+
+packages:
+  FilmcaseKit:
+    path: FilmcaseKit
+
+targets:
+  # --- The real "Filmcase" app target goes here later (sources: Filmcase, depends on package FilmcaseKit). ---
+
+  USBSpike:
+    type: application
+    platform: iOS
+    sources:
+      - path: Spikes/USBSpike
+    dependencies:
+      - package: FilmcaseKit
+        product: FilmcaseKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.filmcase.usbspike
+        PRODUCT_NAME: USBSpike
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: .generated/USBSpike-Info.plist
+      properties:
+        CFBundleDisplayName: USBSpike
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        NSCameraUsageDescription: "USBSpike talks to your Fujifilm camera over USB-C to read and write custom slots."
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+
+schemes:
+  USBSpike:
+    build:
+      targets:
+        USBSpike: all
+    run:
+      config: Debug
+    archive:
+      config: Release
