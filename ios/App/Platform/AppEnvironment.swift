@@ -2,6 +2,7 @@
 
 import FilmcaseKit
 import Foundation
+import SwiftData
 
 /// UserDefaults keys the app owns. Outside `AppEnvironment` so reading them needs no actor hop.
 enum AppDefaults {
@@ -57,6 +58,7 @@ final class AppEnvironment {
         cameraMode: CameraMode = .usb,
         httpTransport: (any HTTPTransport)? = nil,
         configCache: any ClientConfigCache = InMemoryClientConfigCache(),
+        backupStore: any BackupStore = InMemoryBackupStore(),
         cameraConfig: ClientConfig = AppEnvironment.bundledCameraConfig()
     ) {
         let trust = TrustEvaluator(store: pinStore)
@@ -78,7 +80,7 @@ final class AppEnvironment {
         self.cameraConfig = cameraConfig
         self.runtimeProvider = runtimeProvider
         self.connection = connection
-        self.backupStore = InMemoryBackupStore() // TODO(P7/persistence): SwiftData adapter
+        self.backupStore = backupStore
         self.library = LibraryModel(client: client)
         self.collections = CollectionsModel(client: client)
         self.cameraModel = CameraModel(connection: connection, runtime: runtimeProvider)
@@ -99,13 +101,22 @@ final class AppEnvironment {
 
     /// Keychain-backed stores, the real path monitor and `UserDefaults.standard`.
     static func live() -> AppEnvironment {
-        AppEnvironment(
+        // Built once here and owned by the store actor. A store that cannot open is not
+        // silently swapped for memory, because that would drop the user's backups.
+        let backupContainer: ModelContainer
+        do {
+            backupContainer = try SwiftDataBackupStore.makeLiveContainer()
+        } catch {
+            fatalError("Could not open the backup store: \(error)")
+        }
+        return AppEnvironment(
             tokenStore: KeychainTokenStore(),
             pinStore: KeychainPinStore(),
             pathEvents: PathMonitorEvents(),
             endpointSettings: EndpointSettings(defaults: .standard),
             cameraMode: .usb,
-            configCache: FileClientConfigCache.standard()
+            configCache: FileClientConfigCache.standard(),
+            backupStore: SwiftDataBackupStore(modelContainer: backupContainer)
         )
     }
 
