@@ -8,7 +8,17 @@ import Testing
 private let camera = ConnectionRig.cameraName
 private let ready = ConnectionState.ready(cameraName: camera)
 
-/// Wait until the connection is `busy` or `recovering`.
+private func isBusy(_ state: ConnectionState) -> Bool {
+    if case .busy = state { return true }
+    return false
+}
+
+private func isRecovering(_ state: ConnectionState) -> Bool {
+    if case .recovering = state { return true }
+    return false
+}
+
+/// True while the connection is `busy` or `recovering`.
 private func isRunning(_ connection: CameraConnection) async -> Bool {
     switch await connection.current {
     case .busy, .recovering: return true
@@ -137,8 +147,8 @@ struct CameraConnectionTests {
         let run = Task {
             try await rig.connection.run("name") { try await $0.setString(nameCode, "FCTEST") }
         }
-        await rig.clock.waitForSleeps(2)   // run 1's timeout, then this run's
-        rig.clock.advance(by: .seconds(31))
+        await waitUntil { rig.clock.sleeps.count >= 2 }   // run 1's timeout, then this run's
+        await rig.advanceClock(while: isBusy)
         _ = try await run.value
 
         let writes = await rig.device.writes
@@ -158,8 +168,8 @@ struct CameraConnectionTests {
         await rig.connectAndWaitUntilReady()
         let nameCode = TestSupport.propSlotName
         let run = Task { try await rig.connection.run("name") { try await $0.setString(nameCode, "A") } }
-        await rig.clock.waitForSleeps(1)
-        rig.clock.advance(by: .seconds(31))
+        await waitUntil { rig.clock.sleeps.count >= 1 }
+        await rig.advanceClock(while: isBusy)
         _ = try await run.value
         #expect(await rig.device.writes.map(\.code) == [nameCode])
     }
@@ -169,10 +179,10 @@ struct CameraConnectionTests {
         await rig.connectAndWaitUntilReady()
         let nameCode = TestSupport.propSlotName
         let run = Task { try await rig.connection.run("name") { try await $0.setString(nameCode, "A") } }
-        await rig.clock.waitForSleeps(1)
-        rig.clock.advance(by: .seconds(31))
-        await rig.clock.waitForSleeps(3)   // timeout, reopen guard, retry timeout
-        rig.clock.advance(by: .seconds(31))
+        await waitUntil { rig.clock.sleeps.count >= 1 }
+        await rig.advanceClock(while: isBusy)
+        await waitUntil { rig.clock.sleeps.count >= 3 }   // timeout, reopen guard, retry timeout
+        await rig.advanceClock(while: isRecovering)
         let result = await run.result
         guard case .failure(let error) = result, error is CameraConnectionError else {
             Issue.record("expected CameraConnectionError, got \(result)")
@@ -187,8 +197,8 @@ struct CameraConnectionTests {
         await rig.connectAndWaitUntilReady()
         let nameCode = TestSupport.propSlotName
         let run = Task { try await rig.connection.run("name") { try await $0.setString(nameCode, "A") } }
-        await rig.clock.waitForSleeps(1)
-        rig.clock.advance(by: .seconds(31))
+        await waitUntil { rig.clock.sleeps.count >= 1 }
+        await rig.advanceClock(while: isBusy)
         let result = await run.result
         guard case .failure(let error) = result, error is CameraConnectionError else {
             Issue.record("expected CameraConnectionError, got \(result)")

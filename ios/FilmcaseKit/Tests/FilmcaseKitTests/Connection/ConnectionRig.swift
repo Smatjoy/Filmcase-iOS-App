@@ -16,9 +16,12 @@ struct ConnectionRig {
         intValues: [UInt16: Int] = [:], stringValues: [UInt16: String] = [:],
         authorizationStatus: CameraAuthorizationStatus = .notDetermined,
         grantsAuthorization: Bool = true, attached: Bool = true,
-        stallOnCalls: Set<Int> = [], unplugOnCall: Int? = nil, failOpens: Set<Int> = []
+        stallOnCalls: Set<Int> = [], unplugOnCall: Int? = nil, failOpens: Set<Int> = [],
+        setRejectionCodes: [UInt16: Int] = [:]
     ) throws {
-        device = FakePTPDevice(intValues: intValues, stringValues: stringValues, cameraName: Self.cameraName)
+        device = FakePTPDevice(
+            intValues: intValues, stringValues: stringValues, cameraName: Self.cameraName,
+            setRejectionCodes: setRejectionCodes)
         transport = FakeCameraTransport(
             device: device, authorizationStatus: authorizationStatus, grantsAuthorization: grantsAuthorization,
             attached: attached, stallOnCalls: stallOnCalls, unplugOnCall: unplugOnCall, failOpens: failOpens)
@@ -31,6 +34,19 @@ struct ConnectionRig {
     func connectAndWaitUntilReady() async {
         await connection.connect()
         await waitUntil { await connection.current == .ready(cameraName: Self.cameraName) }
+    }
+}
+
+extension ConnectionRig {
+    /// Move the clock past the operation timeout until *predicate* stops holding for the
+    /// connection state. Repeated, because `TestClock` records a sleep a moment before the
+    /// sleeper is registered, so a single advance can land too early and be lost.
+    func advanceClock(while predicate: (ConnectionState) -> Bool) async {
+        for _ in 0..<5_000 {
+            if !predicate(await connection.current) { return }
+            clock.advance(by: .seconds(31))
+            try? await Task.sleep(for: .milliseconds(1))
+        }
     }
 }
 

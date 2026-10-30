@@ -35,3 +35,22 @@ Tests serve recorded responses from `Tests/FilmcaseKitTests/API/Fixtures/`. Re-r
 RECORD_API_FIXTURES=1 .venv/bin/pytest \
     ios/FilmcaseKit/Tests/FilmcaseKitTests/API/Fixtures/record_api_fixtures.py -p no:cacheprovider
 ```
+
+## Connection and workflows (P4b)
+
+`Clock/` exposes `FilmcaseClock` (renamed from `Clock` so it no longer shadows `Swift.Clock`);
+the camera layer's seconds-based `CameraSleeper` is adapted onto it with `ClockSleeper`.
+
+`Connection/` holds `CameraTransport` (what the ImageCaptureCore adapter implements) and
+`CameraConnection`, the state machine `idle → awaitingAuthorization → searching → opening →
+ready → busy → recovering → lost` (plus `unauthorized`). The transition table is the pure
+`ConnectionState.applying(_:)`. `run(_:_:)` is exclusive and times out through the injected
+clock; on a stall it closes and reopens the session, restores the last slot cursor written
+(0xD18C) and retries once (ADR 016), and a second stall is `lost`. Operations must be
+cancellable, since the timeout race cancels them. `FakeCameraTransport` scripts denied
+authorization, stalled calls and unplugging mid-call, and is what the demo flavor uses.
+
+`Workflows/` holds `SlotBackupWorkflow` (read slot, store `SlotBackup`, push, one-tap
+restore; results `.verified` / `.partiallyFailed` / `.connectionLost`), `BackupStore` with
+`InMemoryBackupStore`, and `CollectionPush` (validated slot assignment, slot order,
+`CAMERA_INTER_SLOT_DELAY_S` between slots, progress stream, stop on connection loss, resume).
