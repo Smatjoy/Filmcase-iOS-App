@@ -65,7 +65,9 @@ def _version(position: int | None) -> dict[str, object] | None:
     return {"position": position, "label": f"v{position}"}
 
 
-def _recipe_summary(recipe: recipe_queries.RecipeData, *, version_position: int | None) -> dict[str, object]:
+def _recipe_summary(
+    recipe: recipe_queries.RecipeData, *, version_position: int | None, is_favorite: bool
+) -> dict[str, object]:
     return {
         "id": recipe.id,
         "name": recipe.name,
@@ -75,6 +77,7 @@ def _recipe_summary(recipe: recipe_queries.RecipeData, *, version_position: int 
         "color_chrome_effect": recipe.color_chrome_effect,
         "white_balance": recipe.white_balance,
         "image_count": recipe.image_count,
+        "is_favorite": is_favorite,
         "version": _version(version_position),
         "cover_thumbnail_url": _thumbnail_url(recipe.cover_image_id),
     }
@@ -84,10 +87,11 @@ class RecipeList(generic.View):
     """
     List recipes a page at a time, filtered exactly as the recipe explorer is.
 
-    Query params: ``page``, ``page_size`` (at most 100), ``name_search``, and the
-    explorer's facet fields (``film_simulation=Provia&film_simulation=...``,
-    ``sensors``, ...). The facet options for the current filters come back under
-    ``facets``, so a client can build the same sidebar.
+    Query params: ``page``, ``page_size`` (at most 100), ``name_search``,
+    ``favorite=true`` (only recipes with a favourite image), and the explorer's
+    facet fields (``film_simulation=Provia&film_simulation=...``, ``sensors``, ...).
+    The facet options for the current filters come back under ``facets``, so a
+    client can build the same sidebar.
     """
 
     def get(self, request: http.HttpRequest) -> http.HttpResponse:
@@ -99,16 +103,22 @@ class RecipeList(generic.View):
         gallery = recipe_queries.get_recipe_gallery_data(
             active_filters=recipe_views._recipe_explorer_filters_from_request(request),
             name_search=request.GET.get("name_search", "").strip(),
+            favorites_only=request.GET.get("favorite", "").lower() in ("1", "true"),
             page_number=page_number,
             page_size=page_size,
         )
         page = gallery.page_obj
-        versions = recipe_queries.get_version_positions(recipe_ids=[r.id for r in page.items])
+        recipe_ids = [r.id for r in page.items]
+        versions = recipe_queries.get_version_positions(recipe_ids=recipe_ids)
+        favorites = recipe_queries.get_favorite_recipe_ids(recipe_ids=recipe_ids)
         return http.JsonResponse({
             "count": page.total_count,
             "next": _page_link(request, page.next_page_number),
             "previous": _page_link(request, page.previous_page_number),
-            "results": [_recipe_summary(r, version_position=versions.get(r.id)) for r in page.items],
+            "results": [
+                _recipe_summary(r, version_position=versions.get(r.id), is_favorite=r.id in favorites)
+                for r in page.items
+            ],
             "facets": gallery.sidebar_options,
         })
 
@@ -157,6 +167,7 @@ class RecipeDetail(generic.View):
             "sensors": list(recipe.sensors),
             "bodies": list(recipe.bodies),
             "image_count": recipe.image_count,
+            "is_favorite": recipe.id in recipe_queries.get_favorite_recipe_ids(recipe_ids=[recipe.id]),
             "version": _version(current.position if current else None),
             "version_line": [
                 {"id": v.recipe_id, "name": v.name, "position": v.position, "label": v.label, "is_current": v.is_current}

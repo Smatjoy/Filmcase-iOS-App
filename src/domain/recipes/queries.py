@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 import attrs
 from django.core import paginator as django_paginator
 from django.db import models as db_models
-from django.db.models import Case, Count, IntegerField, Max, Min, OuterRef, Q, Subquery, Value, When
+from django.db.models import Case, Count, Exists, IntegerField, Max, Min, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Lower, TruncMonth
 
 from src.data import models
@@ -947,6 +947,7 @@ def get_recipe_gallery_data(
     *,
     active_filters: Mapping[str, Sequence[str]],
     name_search: str = "",
+    favorites_only: bool = False,
     page_number: int | str,
     page_size: int,
 ) -> RecipeGalleryData:
@@ -958,6 +959,9 @@ def get_recipe_gallery_data(
     background), paginates, and returns domain value objects — no ORM models escape.
 
     *name_search* is an optional case-insensitive substring filter on the recipe name.
+
+    *favorites_only* keeps only recipes with at least one favourite image (see
+    ``get_favorite_recipe_ids``).
 
     Results are ordered by:
     1. Whether the recipe has a name — named recipes before unnamed.
@@ -991,6 +995,8 @@ def get_recipe_gallery_data(
         qs = qs.filter(pk__in=matching_pks)
     if name_search:
         qs = qs.filter(Q(name__icontains=name_search))
+    if favorites_only:
+        qs = qs.filter(Exists(models.Image.objects.filter(fujifilm_recipe=OuterRef("pk"), is_favorite=True)))
     qs = qs.order_by("-has_name", "-image_count", "pk")
 
     raw_page = django_paginator.Paginator(qs, page_size).get_page(page_number)
@@ -1075,6 +1081,21 @@ def get_version_positions(*, recipe_ids: Sequence[int]) -> dict[int, int]:
         ).values("recipe_id", "position")
         if row["position"] is not None
     }
+
+
+def get_favorite_recipe_ids(*, recipe_ids: Sequence[int]) -> set[int]:
+    """
+    Return the subset of *recipe_ids* that have at least one favourite image.
+
+    Favourites are marked on images, not recipes; a recipe counts as a favourite
+    when any photo taken with it is one.
+    """
+    return set(
+        models.Image.objects
+        .filter(fujifilm_recipe_id__in=list(recipe_ids), is_favorite=True)
+        .values_list("fujifilm_recipe_id", flat=True)
+        .distinct()
+    )
 
 
 _MOVE_SEARCH_LIMIT = 30

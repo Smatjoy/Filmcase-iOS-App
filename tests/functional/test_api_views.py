@@ -217,6 +217,39 @@ class TestRecipeList:
     def test_page_size_can_be_the_maximum(self, client):
         assert _get(client, "/api/v1/recipes/", page_size=100).status_code == 200
 
+    def test_recipe_with_a_favourite_image_is_a_favourite(self, client):
+        loved = _camera_recipe(name="Loved")
+        ImageFactory(fujifilm_recipe=loved, is_favorite=True)
+        ImageFactory(fujifilm_recipe=loved, is_favorite=False)
+        plain = _camera_recipe(name="Plain")
+        ImageFactory(fujifilm_recipe=plain, is_favorite=False)
+
+        results = json.loads(_get(client, "/api/v1/recipes/").content)["results"]
+
+        assert {r["name"]: r["is_favorite"] for r in results} == {"Loved": True, "Plain": False}
+
+    @pytest.mark.parametrize("value", ["true", "1"])
+    def test_filters_by_favorite(self, client, value):
+        loved = _camera_recipe(name="Loved")
+        ImageFactory(fujifilm_recipe=loved, is_favorite=True)
+        ImageFactory(fujifilm_recipe=loved, is_favorite=True)
+        _camera_recipe(name="Plain")
+
+        payload = json.loads(_get(client, "/api/v1/recipes/", favorite=value).content)
+
+        assert [r["name"] for r in payload["results"]] == ["Loved"]
+        assert payload["count"] == 1
+
+    def test_favorite_filter_combines_with_facets(self, client):
+        chrome = _camera_recipe(name="Chrome", film_simulation="Classic Chrome")
+        ImageFactory(fujifilm_recipe=chrome, is_favorite=True)
+        provia = _camera_recipe(name="Provia One", film_simulation="Provia")
+        ImageFactory(fujifilm_recipe=provia, is_favorite=True)
+
+        payload = json.loads(_get(client, "/api/v1/recipes/", favorite="true", film_simulation="Provia").content)
+
+        assert [r["name"] for r in payload["results"]] == ["Provia One"]
+
     def test_filters_by_film_simulation(self, client):
         _camera_recipe(name="Chrome", film_simulation="Classic Chrome")
         _camera_recipe(name="Provia One", film_simulation="Provia")
@@ -272,6 +305,15 @@ class TestRecipeList:
 
 @pytest.mark.django_db
 class TestRecipeDetail:
+    @pytest.mark.parametrize("favorite_image, expected", [(True, True), (False, False)])
+    def test_is_favorite_follows_its_images(self, client, favorite_image, expected):
+        recipe = _camera_recipe(name="Detail")
+        ImageFactory(fujifilm_recipe=recipe, is_favorite=favorite_image)
+
+        payload = json.loads(_get(client, f"/api/v1/recipes/{recipe.pk}/").content)
+
+        assert payload["is_favorite"] is expected
+
     def test_returns_every_setting(self, client):
         recipe = FujifilmRecipeFactory(
             name="Full",

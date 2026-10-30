@@ -29,6 +29,8 @@ The browser's WebUSB client is the constraint that shapes the answer. It fetches
 
 Plain Django `JsonResponse` views, GET only, built from the same domain queries the HTML views call. The recipe list takes the explorer's own facet parameters and goes through `get_recipe_gallery_data`, so the two cannot disagree about what a filter means; the facet options for the current filters come back in the same response so a client can build the same sidebar. Collections reuse `get_collection_summaries` and `get_collection_detail`. Thumbnails and originals are served by the same function the browser's image route uses.
 
+Recipes carry an `is_favorite` flag, and the list takes `favorite=true`. The data model has no recipe-level favourite: favourites are marked on images. The API derives one, true when any image taken with the recipe is a favourite, because a phone in the field wants "my favourite recipes" and that is the closest thing the library already records. The rule lives in one domain query, `get_favorite_recipe_ids`, so the browser can adopt it unchanged if it ever wants the same filter.
+
 No DRF. The surface is a handful of read-only endpoints over data the domain layer already shapes, and a serializer framework would add a dependency and a second description of every field.
 
 Writes are not part of this. Editing stays in the browser, and the one write the native client performs, to the camera, does not touch the server.
