@@ -39,8 +39,8 @@ struct ConnectionRig {
 
 extension ConnectionRig {
     /// Move the clock past the operation timeout until *predicate* stops holding for the
-    /// connection state. Repeated, because `TestClock` records a sleep a moment before the
-    /// sleeper is registered, so a single advance can land too early and be lost.
+    /// connection state. Repeated, because an advance can land before the operation's
+    /// timeout sleep has started, and that sleep then waits for the next one.
     func advanceClock(while predicate: (ConnectionState) -> Bool) async {
         for _ in 0..<5_000 {
             if !predicate(await connection.current) { return }

@@ -31,19 +31,28 @@ final class TestClock: FilmcaseClock {
     var sleeps: [Duration] { state.withLock { $0.sleeps } }
 
     func sleep(for duration: Duration) async throws {
-        let id = state.withLock { state -> Int in
+        // The deadline is fixed when the sleep is recorded, not when the waiter
+        // registers: a test that sees the sleep (waitForSleeps) and advances before
+        // registration must still wake it.
+        let (id, deadline) = state.withLock { state -> (Int, Duration) in
             state.nextID += 1
             state.sleeps.append(duration)
-            return state.nextID
+            return (state.nextID, state.elapsed + duration)
         }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-                let cancelled = state.withLock { state -> Bool in
-                    if state.cancelledEarly.remove(id) != nil { return true }
-                    state.waiters[id] = Waiter(deadline: state.elapsed + duration, continuation: continuation)
-                    return false
+                enum Registration { case cancelled, alreadyDue, waiting }
+                let registration = state.withLock { state -> Registration in
+                    if state.cancelledEarly.remove(id) != nil { return .cancelled }
+                    if deadline <= state.elapsed { return .alreadyDue }
+                    state.waiters[id] = Waiter(deadline: deadline, continuation: continuation)
+                    return .waiting
                 }
-                if cancelled { continuation.resume(throwing: CancellationError()) }
+                switch registration {
+                case .cancelled: continuation.resume(throwing: CancellationError())
+                case .alreadyDue: continuation.resume()
+                case .waiting: break
+                }
             }
         } onCancel: {
             let waiter = state.withLock { state -> Waiter? in
