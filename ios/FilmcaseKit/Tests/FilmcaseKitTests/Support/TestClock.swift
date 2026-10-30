@@ -4,7 +4,7 @@ import Synchronization
 
 /// A clock that only moves when the test says so. `sleep` suspends until
 /// `advance(by:)` passes its deadline, and records every requested duration.
-final class TestClock: FilmcaseKit.Clock {
+final class TestClock: FilmcaseClock {
     private struct Waiter {
         let deadline: Duration
         let continuation: CheckedContinuation<Void, any Error>

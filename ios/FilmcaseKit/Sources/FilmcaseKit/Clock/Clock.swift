@@ -1,10 +1,10 @@
-// Minimal injected time source. Shadows Swift.Clock inside this module on purpose:
-// everything in FilmcaseKit that needs time takes one of these, so tests can
-// control it (see TestClock in the test target).
+// Minimal injected time source. Named FilmcaseClock rather than Clock so it does not shadow
+// Swift.Clock inside this module: everything in FilmcaseKit that needs time takes one of
+// these, so tests can control it (see TestClock in the test target).
 
 import Foundation
 
-public protocol Clock: Sendable {
+public protocol FilmcaseClock: Sendable {
     /// The current wall-clock time.
     var now: Date { get }
 
@@ -13,7 +13,7 @@ public protocol Clock: Sendable {
 }
 
 /// The real clock, backed by `Task.sleep`.
-public struct SystemClock: Clock {
+public struct SystemClock: FilmcaseClock {
     public init() {}
 
     public var now: Date { Date() }

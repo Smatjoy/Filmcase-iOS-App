@@ -23,7 +23,7 @@ public actor ServerEndpoints {
     public private(set) var endpoints: [URL]
     private let session: URLSession
     private let probeTimeout: Duration
-    private let clock: any Clock
+    private let clock: any FilmcaseClock
     private var cached: URL?
     private var generation = 0
 
@@ -31,7 +31,7 @@ public actor ServerEndpoints {
         endpoints: [URL],
         session: URLSession,
         probeTimeout: Duration = .seconds(2),
-        clock: any Clock = SystemClock()
+        clock: any FilmcaseClock = SystemClock()
     ) {
         self.endpoints = endpoints
         self.session = session
@@ -121,7 +121,7 @@ func apiURL(_ base: URL, path: String, query: [URLQueryItem] = []) -> URL {
 /// Run *operation*, failing with `URLError(.timedOut)` if *timeout* elapses first on *clock*.
 func withTimeout<T: Sendable>(
     _ timeout: Duration,
-    clock: any Clock,
+    clock: any FilmcaseClock,
     operation: @escaping @Sendable () async throws -> T
 ) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
