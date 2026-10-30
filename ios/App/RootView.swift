@@ -35,7 +35,11 @@ struct RootView: View {
         }
         .task { await environment.observePathChanges() }
         .task { await environment.observeCamera() }
-        .task { showsOnboarding = await environment.needsOnboarding() }
+        .task {
+            showsOnboarding = await environment.needsOnboarding()
+            // Onboarding ends in reloadServerContent(), which refreshes the config itself.
+            if !showsOnboarding { await environment.refreshCameraConfig() }
+        }
         .sheet(isPresented: $showsOnboarding) {
             OnboardingView(environment: environment, onCancel: nil) {
                 showsOnboarding = false

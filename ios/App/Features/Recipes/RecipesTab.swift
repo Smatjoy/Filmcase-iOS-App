@@ -123,7 +123,7 @@ private struct RecipeRow: View {
                 .frame(width: thumbnailSize, height: thumbnailSize)
                 .clipShape(.rect(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 2) {
-                Text(recipe.name).font(.headline)
+                Text(recipe.displayName).font(.headline)
                 Text(recipe.filmSimulation).font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -132,6 +132,6 @@ private struct RecipeRow: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(recipe.accessibilityDescription)
+        .accessibilityLabel(recipe.accessibilityLabel)
     }
 }

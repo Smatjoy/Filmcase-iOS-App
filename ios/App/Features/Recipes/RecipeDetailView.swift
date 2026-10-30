@@ -57,8 +57,8 @@ struct RecipeDetailView: View {
     private func header(_ detail: RecipeDetail) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             FilmSimSwatch(name: detail.filmSimulation)
-            if !detail.description.isEmpty {
-                Text(detail.description).font(.body)
+            if let text = model.descriptionText {
+                Text(text).font(.body)
             }
         }
     }

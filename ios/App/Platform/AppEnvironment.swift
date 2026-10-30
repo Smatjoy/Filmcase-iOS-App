@@ -14,8 +14,8 @@ enum AppDefaults {
 /// The composition root: the one place the app's dependencies and view models are built.
 /// Constructed once in `FilmcaseApp` and passed down; tests build it with in-memory stores.
 ///
-/// Surface for the camera features (P7): `client`, `connection`, `cameraModel`,
-/// `cameraRuntime`, `cameraConfig`, `backupStore`, `thumbnails`.
+/// Surface for the camera features: `client`, `connection`, `cameraModel`,
+/// `runtimeProvider`, `backupStore`, `thumbnails`.
 @MainActor
 final class AppEnvironment {
     /// Which `CameraTransport` backs the camera connection.
@@ -36,7 +36,9 @@ final class AppEnvironment {
     /// The bundled snapshot of `/camera/client-config.json`. The connection needs the slot-cursor
     /// code before any server has answered, so the snapshot is what it is built with.
     let cameraConfig: ClientConfig
-    let cameraRuntime: CameraRuntime
+    /// The served config (ADR 016), else the last one cached, else the snapshot. Every camera
+    /// workflow asks it for the current runtime when it starts.
+    let runtimeProvider: CameraRuntimeProvider
     let connection: CameraConnection
     let backupStore: any BackupStore
 
@@ -54,6 +56,7 @@ final class AppEnvironment {
         endpointSettings: EndpointSettings,
         cameraMode: CameraMode = .usb,
         httpTransport: (any HTTPTransport)? = nil,
+        configCache: any ClientConfigCache = InMemoryClientConfigCache(),
         cameraConfig: ClientConfig = AppEnvironment.bundledCameraConfig()
     ) {
         let trust = TrustEvaluator(store: pinStore)
@@ -62,7 +65,8 @@ final class AppEnvironment {
         let client = FilmcaseClient(endpoints: endpoints, tokenStore: tokenStore, transport: transport)
         let connection = CameraConnection(
             transport: makeCameraTransport(mode: cameraMode, config: cameraConfig), config: cameraConfig)
-        let runtime = CameraRuntime(config: cameraConfig, clock: SystemClock())
+        let runtimeProvider = CameraRuntimeProvider(
+            client: client, cache: configCache, bundledSnapshot: cameraConfig)
 
         self.cameraMode = cameraMode
         self.tokenStore = tokenStore
@@ -72,12 +76,12 @@ final class AppEnvironment {
         self.endpointSettings = endpointSettings
         self.pathEvents = pathEvents
         self.cameraConfig = cameraConfig
-        self.cameraRuntime = runtime
+        self.runtimeProvider = runtimeProvider
         self.connection = connection
         self.backupStore = InMemoryBackupStore() // TODO(P7/persistence): SwiftData adapter
         self.library = LibraryModel(client: client)
         self.collections = CollectionsModel(client: client)
-        self.cameraModel = CameraModel(connection: connection, runtime: runtime)
+        self.cameraModel = CameraModel(connection: connection, runtime: runtimeProvider)
         self.thumbnails = ThumbnailLoader(client: client)
     }
 
@@ -100,7 +104,8 @@ final class AppEnvironment {
             pinStore: KeychainPinStore(),
             pathEvents: PathMonitorEvents(),
             endpointSettings: EndpointSettings(defaults: .standard),
-            cameraMode: .usb
+            cameraMode: .usb,
+            configCache: FileClientConfigCache.standard()
         )
     }
 
@@ -147,6 +152,8 @@ final class AppEnvironment {
             settings: endpointSettings)
     }
 
+    /// The "can this be sent" check validates against the bundled snapshot, because the view
+    /// builds this model synchronously. The push itself always uses the served runtime.
     func makeRecipeDetailModel(id: Int) -> RecipeDetailModel {
         RecipeDetailModel(
             recipeID: id, client: client,
@@ -157,6 +164,12 @@ final class AppEnvironment {
     func reloadServerContent() async {
         await library.reload()
         await collections.load()
+        await refreshCameraConfig()
+    }
+
+    /// Fetch the served camera config. Never throws; a failed refresh keeps what is in use.
+    func refreshCameraConfig() async {
+        await runtimeProvider.refresh()
     }
 
     func forgetCertificate(host: String) async throws {

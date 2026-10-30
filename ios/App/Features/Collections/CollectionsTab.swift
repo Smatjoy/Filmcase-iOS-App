@@ -87,30 +87,28 @@ private struct CollectionDetailView: View {
 
     var body: some View {
         Group {
-            // The shared model may still hold the previously opened collection for a moment.
-            if model.selectedID != collectionID {
-                ProgressView()
-            } else {
-                switch model.detailState {
-                case .loading:
-                    ProgressView("Loading collection")
-                case .empty:
-                    ContentUnavailableView(
-                        "Empty Collection", systemImage: "rectangle.stack",
-                        description: Text("This collection has no recipes."))
-                case .error, .offline:
-                    FailureView(state: model.detailState) { Task { await model.loadDetail(id: collectionID) } }
-                case .loaded:
-                    recipeList
+            // Per-id state: a collection opened a moment ago never shows here.
+            switch model.detailState(for: collectionID) {
+            case .loading:
+                ProgressView("Loading collection")
+            case .empty:
+                ContentUnavailableView(
+                    "Empty Collection", systemImage: "rectangle.stack",
+                    description: Text("This collection has no recipes."))
+            case .error, .offline:
+                FailureView(state: model.detailState(for: collectionID)) {
+                    Task { await model.loadDetail(id: collectionID) }
                 }
+            case .loaded:
+                recipeList
             }
         }
-        .navigationTitle(model.detail?.name ?? "Collection")
+        .navigationTitle(model.detail(for: collectionID)?.name ?? "Collection")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Push to camera", systemImage: "paperplane") { showsPush = true }
-                    .disabled(model.orderedRecipes.isEmpty)
+                    .disabled(model.orderedRecipes(for: collectionID).isEmpty)
             }
         }
         .task { await model.loadDetail(id: collectionID) }
@@ -122,7 +120,7 @@ private struct CollectionDetailView: View {
 
     private var recipeList: some View {
         List {
-            ForEach(Array(model.orderedRecipes.enumerated()), id: \.element.id) { pair in
+            ForEach(Array(model.orderedRecipes(for: collectionID).enumerated()), id: \.element.id) { pair in
                 NavigationLink(value: CollectionsRoute.recipe(pair.element.id)) {
                     HStack {
                         Text("\(pair.offset + 1)")

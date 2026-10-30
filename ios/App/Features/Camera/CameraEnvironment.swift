@@ -8,7 +8,8 @@ import Foundation
     var connection: CameraConnection { get }
     var client: FilmcaseClient { get }
     var backupStore: any BackupStore { get }
-    var cameraRuntime: CameraRuntime { get }
+    /// Hands out the runtime built from the served config; asked when each workflow starts.
+    var runtimeProvider: CameraRuntimeProvider { get }
     /// The one CameraModel the app shares (tab-bar pill, Camera tab, Send sheet), so
     /// only one model observes the connection.
     var cameraModel: CameraModel { get }
@@ -22,6 +23,8 @@ extension CameraFeatureEnvironment {
     }
 
     func makeSlotWorkflow() async throws -> SlotBackupWorkflow {
-        SlotBackupWorkflow(runner: connection, store: backupStore, runtime: cameraRuntime, clock: clock)
+        SlotBackupWorkflow(
+            runner: connection, store: backupStore,
+            runtime: await runtimeProvider.currentRuntime(), clock: clock)
     }
 }
