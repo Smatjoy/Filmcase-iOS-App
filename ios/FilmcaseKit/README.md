@@ -78,3 +78,13 @@ the SwiftUI views render state and forward intents and nothing else:
 
 Tests in `Tests/FilmcaseKitTests/ViewModels/` drive the models with the API fixtures, a
 `GatedTransport` that holds responses until released, `FakeCameraTransport` and `TestClock`.
+
+### Camera views carry no decisions (P4d)
+
+- `BackupsModel`: latest backup per camera and slot, restore with wording from `UserMessages`.
+- `CameraModel.observe()` connects by itself when idle (`autoConnectSuspension` records why it
+  stopped: access declined, user disconnected, or turned off); only `connect()` lifts it.
+- `PushSheetModel(recipe:camera:workflow:)` owns its slots through `SlotSource` and re-reads them
+  after a push or restore the camera answered.
+- `CollectionPushModel.moveRows(fromOffsets:toOffset:)` has `List.onMove` semantics (rows shift).
+  `SlotStatus` and `SlotPushResult` give `displayText`, `accessibilityText` and `indicator`.

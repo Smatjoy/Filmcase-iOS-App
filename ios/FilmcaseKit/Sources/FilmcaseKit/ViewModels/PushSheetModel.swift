@@ -4,6 +4,19 @@
 import Foundation
 import Observation
 
+/// What `PushSheetModel` needs from the camera model. `CameraModel` conforms.
+@MainActor
+public protocol SlotSource: AnyObject {
+    var slots: [SlotItem] { get }
+    var slotsState: CameraModel.SlotsState { get }
+    var pill: ConnectionPill { get }
+    func observe() async
+    func connect() async
+    func refreshSlots() async
+}
+
+extension CameraModel: SlotSource {}
+
 /// A property the camera did not take, named for display.
 public struct PropertyDiffRow: Equatable, Identifiable, Sendable {
     /// As the server serves it (`HighLightTone`).
@@ -41,6 +54,20 @@ public final class PushSheetModel {
         public let slot: Int
         public let result: Result
 
+        /// The headline for the result: "C3 verified", "C3: 2 settings not applied", ...
+        public var message: String {
+            switch result {
+            case .verified:
+                return action == .push ? "C\(slot) verified" : "C\(slot) restored"
+            case .partiallyFailed(let names):
+                return "C\(slot): \(UserMessages.text(for: SlotPushResult.partiallyFailed(names)))"
+            case .connectionLost:
+                return "The camera connection was lost"
+            case .failed(let text):
+                return text
+            }
+        }
+
         /// The partially failed properties as a list to render.
         public var diff: [PropertyDiffRow] {
             if case .partiallyFailed(let names) = result { return names.map(PropertyDiffRow.init) }
@@ -58,7 +85,13 @@ public final class PushSheetModel {
     }
 
     public let recipe: Recipe
-    public private(set) var slots: [SlotItem]
+    /// The slots to choose from: the camera model's when the model was made with one (so they
+    /// follow it), otherwise the ones given.
+    public var slots: [SlotItem] { source?.slots ?? fixedSlots }
+    /// Where the slots stand (reading, read, failed). Always `.loaded` without a camera model.
+    public var slotsState: CameraModel.SlotsState { source?.slotsState ?? .loaded }
+    /// The connection pill to show while there are no slots to choose from; nil without a camera model.
+    public var pill: ConnectionPill? { source?.pill }
     public private(set) var phase: Phase = .choosingSlot
     /// Count of verified pushes or restores, for `.sensoryFeedback(.success, trigger:)`.
     public private(set) var successCount = 0
@@ -68,11 +101,24 @@ public final class PushSheetModel {
     public private(set) var lastBackup: SlotBackup?
 
     @ObservationIgnored private let workflow: SlotBackupWorkflow
+    @ObservationIgnored private let source: (any SlotSource)?
+    private var fixedSlots: [SlotItem]
 
+    /// A model over slots read elsewhere; `updateSlots` replaces them.
     public init(recipe: Recipe, slots: [SlotItem], workflow: SlotBackupWorkflow) {
         self.recipe = recipe
-        self.slots = slots
+        self.fixedSlots = slots
         self.workflow = workflow
+        self.source = nil
+    }
+
+    /// A model that owns its slots: it shows the camera model's slots, and reads them again
+    /// after every push or restore the camera answered. Run `observe()` from `.task`.
+    public init(recipe: Recipe, camera: any SlotSource, workflow: SlotBackupWorkflow) {
+        self.recipe = recipe
+        self.fixedSlots = []
+        self.workflow = workflow
+        self.source = camera
     }
 
     public var canRestore: Bool {
@@ -98,7 +144,23 @@ public final class PushSheetModel {
 
     /// The slots were read again (after a push, say).
     public func updateSlots(_ slots: [SlotItem]) {
-        self.slots = slots
+        fixedSlots = slots
+    }
+
+    /// Follow the camera until the calling task is cancelled (run it from `.task`): connects
+    /// when a camera is plugged in and reads the slots. Returns at once without a camera model.
+    public func observe() async {
+        await source?.observe()
+    }
+
+    /// The person asked to connect (no camera found, access denied).
+    public func connect() async {
+        await source?.connect()
+    }
+
+    /// Read the slots again.
+    public func refreshSlots() async {
+        await source?.refreshSlots()
     }
 
     public func choose(slot index: Int) {
@@ -138,6 +200,7 @@ public final class PushSheetModel {
             lastBackup = backup
         }
         finish(Outcome(action: .push, slot: slot.index, result: result))
+        await refreshAfter(result)
     }
 
     /// Put the slot back as the last push found it.
@@ -156,9 +219,18 @@ public final class PushSheetModel {
         }
         if result == .verified { lastBackup = nil }
         finish(Outcome(action: .restore, slot: backup.slotIndex, result: result))
+        await refreshAfter(result)
     }
 
     // --- internals ---
+
+    /// The camera answered, so the slot changed (fully or in part): read the slots again.
+    private func refreshAfter(_ result: Outcome.Result) async {
+        switch result {
+        case .verified, .partiallyFailed: await source?.refreshSlots()
+        case .connectionLost, .failed: break
+        }
+    }
 
     private func finish(_ outcome: Outcome) {
         if outcome.result == .verified { successCount += 1 } else { problemCount += 1 }

@@ -3,19 +3,21 @@ import Testing
 @testable import FilmcaseKit
 
 @MainActor
-private struct CameraRig {
+struct CameraRig {
     let rig: ConnectionRig
     let model: CameraModel
     let observing: Task<Void, Never>
 
     init(
-        authorization: CameraAuthorizationStatus = .authorized, grants: Bool = true, attached: Bool = true
+        authorization: CameraAuthorizationStatus = .authorized, grants: Bool = true, attached: Bool = true,
+        autoConnect: Bool = false
     ) throws {
         rig = try ConnectionRig(
             intValues: [TestSupport.code("FilmSimulation"): 17],
             stringValues: [TestSupport.propSlotName: "Kodak Portra 400"],
             authorizationStatus: authorization, grantsAuthorization: grants, attached: attached)
-        let model = CameraModel(connection: rig.connection, runtime: try TestSupport.runtime(rig.device))
+        let model = CameraModel(
+            connection: rig.connection, runtime: try TestSupport.runtime(rig.device), autoConnect: autoConnect)
         self.model = model
         observing = Task { await model.observe() }
     }

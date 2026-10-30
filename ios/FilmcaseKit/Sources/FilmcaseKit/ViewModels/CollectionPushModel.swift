@@ -23,6 +23,17 @@ public final class CollectionPushModel {
         public let item: Item?
         public var id: Int { slot }
         public var title: String { "C\(slot)" }
+        /// The recipe's name, or "Empty".
+        public var displayName: String { item?.name ?? "Empty" }
+    }
+
+    /// Which mark a status gets in a row.
+    public enum StatusIndicator: Equatable, Sendable {
+        case none
+        case progress
+        case success
+        case warning
+        case failure
     }
 
     public enum SlotStatus: Equatable, Sendable {
@@ -30,6 +41,32 @@ public final class CollectionPushModel {
         case waiting
         case pushing
         case done(SlotPushResult)
+
+        /// Short words for the row, or nil when there is nothing to say yet.
+        public var displayText: String? {
+            switch self {
+            case .waiting: nil
+            case .pushing: "Pushing"
+            case .done(let result): UserMessages.text(for: result)
+            }
+        }
+
+        /// The words for VoiceOver.
+        public var accessibilityText: String? {
+            switch self {
+            case .waiting: nil
+            case .pushing: "Pushing"
+            case .done(let result): UserMessages.accessibilityText(for: result)
+            }
+        }
+
+        public var indicator: StatusIndicator {
+            switch self {
+            case .waiting: .none
+            case .pushing: .progress
+            case .done(let result): result.indicator
+            }
+        }
     }
 
     public enum Phase: Equatable, Sendable {
@@ -177,10 +214,24 @@ public final class CollectionPushModel {
         }
     }
 
-    /// Move whatever is in *source* to *destination* (a swap if it is occupied).
-    public func move(from source: SlotIndex, to destination: SlotIndex) {
-        guard let recipe = assignment[source] else { return }
-        assign(recipe, to: destination)
+    /// Reorder the C1...Cn rows with `List.onMove` semantics: the rows at *source* are taken out
+    /// (keeping their order) and put back before the row that was at *destination*; the rows
+    /// in between shift, they do not swap. Empty slots are rows too and move with the rest.
+    public func moveRows(fromOffsets source: IndexSet, toOffset destination: Int) {
+        guard phase == .editing, slotCount > 0, !source.isEmpty,
+              source.allSatisfy({ (0..<slotCount).contains($0) }),
+              (0...slotCount).contains(destination)
+        else { return }
+        var rows: [RecipeID?] = (1...slotCount).map { assignment[$0] }
+        let moving = source.sorted().map { rows[$0] }
+        let insertAt = destination - source.filter { $0 < destination }.count
+        for offset in source.sorted(by: >) { rows.remove(at: offset) }
+        rows.insert(contentsOf: moving, at: insertAt)
+        var moved: [SlotIndex: RecipeID] = [:]
+        for (offset, recipe) in rows.enumerated() {
+            if let recipe { moved[offset + 1] = recipe }
+        }
+        assignment = moved
     }
 
     public func clear(slot: SlotIndex) {

@@ -67,16 +67,6 @@ struct CollectionPushModelTests {
         #expect(model.unassignedItems.map(\.id) == [2, 9], "recipe 2 was bumped out")
     }
 
-    @Test func movingASlotSwapsOrMoves() async throws {
-        let model = try model(try await WorkflowRig(interSlotDelay: 0))
-        model.move(from: 1, to: 2)
-        #expect(model.assignment == [1: 2, 2: 1, 3: 3])
-        model.move(from: 3, to: 7)
-        #expect(model.assignment == [1: 2, 2: 1, 7: 3])
-        model.move(from: 5, to: 1)   // nothing in 5
-        #expect(model.assignment == [1: 2, 2: 1, 7: 3])
-    }
-
     @Test func outOfRangeAndUnknownAssignmentsAreIgnored() async throws {
         let model = try model(try await WorkflowRig(interSlotDelay: 0))
         model.assign(1, to: 8)

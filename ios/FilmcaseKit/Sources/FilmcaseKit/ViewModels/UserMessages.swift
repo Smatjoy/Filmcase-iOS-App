@@ -115,4 +115,48 @@ public enum UserMessages {
         case .transportError: "Camera connection failed"
         }
     }
+
+    // --- slot push and restore results ---
+
+    /// Property names as the server serves them (`HighLightTone`) spaced for display.
+    public static func propertyLabel(_ name: String) -> String {
+        PropertyDiffRow(name: name).label
+    }
+
+    /// Short status for one slot of a collection push: "Verified", "2 settings not applied",
+    /// "Not pushed \u{2014} connection lost".
+    public static func text(for result: SlotPushResult) -> String {
+        switch result {
+        case .verified:
+            "Verified"
+        case .partiallyFailed(let names):
+            "\(names.count) \(names.count == 1 ? "setting" : "settings") not applied"
+        case .connectionLost:
+            "Not pushed \u{2014} connection lost"
+        }
+    }
+
+    /// The same status for VoiceOver, naming what did not take.
+    public static func accessibilityText(for result: SlotPushResult) -> String {
+        switch result {
+        case .verified:
+            "Verified"
+        case .partiallyFailed(let names):
+            "Did not take: \(names.map(propertyLabel).joined(separator: ", "))"
+        case .connectionLost:
+            "Not pushed, connection lost"
+        }
+    }
+
+    /// What happened when slot *slot* was restored.
+    public static func restoreText(slot: Int, result: SlotPushResult) -> String {
+        switch result {
+        case .verified:
+            "C\(slot) restored."
+        case .partiallyFailed(let names):
+            "C\(slot): the camera did not take \(names.joined(separator: ", "))."
+        case .connectionLost:
+            "The camera connection was lost."
+        }
+    }
 }
