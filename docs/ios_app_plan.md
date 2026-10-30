@@ -128,7 +128,7 @@ The Swift iOS skills (concurrency, Swift Testing, SwiftData) apply throughout.
 
 ## 5. Phases
 
-Each phase lists its **acceptance gate**. Nothing merges until the gate is green. "Cloud" means written **and** gated in this session. "Cloud → macOS" means written in this session, then compiled and tested on macOS (CI, or the Mac over Remote Control, or you pasting errors back).
+Each phase lists its **acceptance gate**. Nothing merges until the gate is green. "Cloud" means written **and** gated in this session. "Cloud → macOS" means written in this session, then compiled and tested on macOS (CI, or the Mac over Remote Control, or you pasting errors back). ✅ = merged with its gate green; ✍️ = written, not yet compiled on macOS.
 
 | # | Phase | Written | Gated | Gate |
 |---|---|---|---|---|
