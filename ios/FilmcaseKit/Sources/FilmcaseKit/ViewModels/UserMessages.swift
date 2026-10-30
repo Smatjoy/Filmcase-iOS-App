@@ -1,0 +1,118 @@
+// Every user-facing error string lives here, so wording is decided (and tested) in one
+// place and views never format an error themselves.
+
+import Foundation
+
+public enum UserMessages {
+    /// The sentence to show for *error*.
+    public static func text(for error: any Error) -> String {
+        switch error {
+        case let error as FilmcaseClientError: return text(for: error)
+        case let error as SlotBackupError: return text(for: error)
+        case let error as CollectionPushError: return text(for: error)
+        case let error as ConnectionError: return text(for: error)
+        case let error as RecipeValidationError:
+            return "The camera cannot take this recipe: \(error.description)"
+        case let error as RecipeConversionError:
+            return "This recipe cannot be converted for the camera: \(String(describing: error))"
+        case let error as CameraConnectionError:
+            return "The camera stopped answering. \(error.message)"
+        case let error as RecipeWriteError:
+            return "The camera refused: \(error.failedProperties.joined(separator: ", "))."
+        default:
+            return "Something went wrong."
+        }
+    }
+
+    public static func text(for error: FilmcaseClientError) -> String {
+        switch error {
+        case .unauthorized:
+            "The server rejected the token."
+        case .serverNotConfigured:
+            "The server has no API token configured."
+        case .notFound:
+            "The server could not find that."
+        case .badRequest(let message):
+            "The server refused the request: \(message)"
+        case .unexpectedStatus(let status):
+            "The server answered with an unexpected status (\(status))."
+        case .transport:
+            "The connection to the server failed."
+        case .decoding:
+            "The server sent a response the app could not read."
+        case .pinMismatch(let host):
+            "The certificate for \(host) changed since you trusted it."
+        case .unpinnedHost(let host, _):
+            "\(host) has not been trusted yet."
+        case .noReachableServer:
+            "No server answered. Check the URLs and that you are on the right network."
+        }
+    }
+
+    public static func text(for error: SlotBackupError) -> String {
+        switch error {
+        case .slotOutOfRange(let slot, let slotCount):
+            slotCount == 0
+                ? "This camera has no custom slots."
+                : "C\(slot) does not exist on this camera (C1 to C\(slotCount))."
+        case .backupNotSaved:
+            "The slot could not be backed up, so nothing was changed."
+        case .wrongCamera(let backup, let connected):
+            "That backup is from a \(backup), but a \(connected) is connected."
+        }
+    }
+
+    public static func text(for error: CollectionPushError) -> String {
+        switch error {
+        case .emptyAssignment:
+            "Assign at least one recipe to a slot."
+        case .slotOutOfRange(let slot, let slotCount):
+            "C\(slot) does not exist on this camera (C1 to C\(slotCount))."
+        case .duplicateSlot(let slot):
+            "C\(slot) is assigned twice."
+        case .unknownRecipe:
+            "A recipe in this collection could not be loaded."
+        case .invalidRecipe(let slot, let message):
+            "C\(slot): \(message)"
+        case .notConnected:
+            "No camera is connected."
+        case .stopped(_, let message):
+            "The push stopped: \(message)"
+        }
+    }
+
+    public static func text(for error: ConnectionError) -> String {
+        switch error {
+        case .busy:
+            "The camera is busy with another operation."
+        case .notReady(let state):
+            "The camera is not ready (\(text(for: state)))."
+        }
+    }
+
+    /// The connection pill's wording for a state.
+    public static func text(for state: ConnectionState) -> String {
+        switch state {
+        case .idle: "Not connected"
+        case .awaitingAuthorization: "Waiting for camera access"
+        case .unauthorized: "Camera access denied"
+        case .searching: "Looking for a camera"
+        case .opening: "Connecting"
+        case .ready(let name): name
+        case .busy(let name, let operation): "\(name): \(operation)"
+        case .recovering(let name, _, _): "\(name): recovering"
+        case .lost(let reason): text(for: reason)
+        }
+    }
+
+    public static func text(for reason: LostReason) -> String {
+        switch reason {
+        case .disconnected: "Camera disconnected"
+        case .sessionClosed: "Camera session closed"
+        case .stalled: "Camera stopped responding"
+        case .recoveryFailed: "Camera could not be recovered"
+        case .openFailed: "Camera could not be opened"
+        case .transportError: "Camera connection failed"
+        }
+    }
+}

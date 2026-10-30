@@ -54,3 +54,27 @@ authorization, stalled calls and unplugging mid-call, and is what the demo flavo
 restore; results `.verified` / `.partiallyFailed` / `.connectionLost`), `BackupStore` with
 `InMemoryBackupStore`, and `CollectionPush` (validated slot assignment, slot order,
 `CAMERA_INTER_SLOT_DELAY_S` between slots, progress stream, stop on connection loss, resume).
+
+## View models (P4c)
+
+`ViewModels/` holds `@MainActor @Observable` models that depend only on FilmcaseKit types, so
+the SwiftUI views render state and forward intents and nothing else:
+
+- `OnboardingModel`: URL/token validation with per-field messages, the connect and
+  trust-on-first-use flow (`idle / connecting / needsTrust / failed / connected`), fingerprints
+  formatted as `AA:BB:...`. URLs persist through `EndpointSettingsStore` (the app's
+  `EndpointSettings` conforms; `InMemoryEndpointSettingsStore` for tests).
+- `LibraryModel`: paged recipe list, 300 ms search debounce on the injected `FilmcaseClock`,
+  facet and favourites filters, pull to refresh. A newer load cancels the older, and a
+  generation number drops any page that still arrives late.
+- `RecipeDetailModel` (with `SpecSheet`, the labelled spec rows matching the web detail page) and
+  `CollectionsModel`.
+- `CameraModel` (connection pill, `SlotItem` grid with VoiceOver labels), `PushSheetModel`
+  (slot, confirm, push, diff, restore; `successCount` / `problemCount` drive
+  `.sensoryFeedback`) and `CollectionPushModel` (assignment editing, validation, per-slot
+  progress, resume, restore all).
+- `UserMessages` is the one place error wording lives; `ContentState` is the shared
+  loading / loaded / empty / error / offline state.
+
+Tests in `Tests/FilmcaseKitTests/ViewModels/` drive the models with the API fixtures, a
+`GatedTransport` that holds responses until released, `FakeCameraTransport` and `TestClock`.
