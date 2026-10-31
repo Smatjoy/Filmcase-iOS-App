@@ -128,7 +128,7 @@ The Swift iOS skills (concurrency, Swift Testing, SwiftData) apply throughout.
 
 ## 5. Phases
 
-Each phase lists its **acceptance gate**. Nothing merges until the gate is green. "Cloud" means written **and** gated in this session. "Cloud → macOS" means written in this session, then compiled and tested on macOS (CI, or the Mac over Remote Control, or you pasting errors back). ✅ = merged with its gate green; ✍️ = written, not yet compiled on macOS.
+Each phase lists its **acceptance gate**. Nothing merges until the gate is green. "Cloud" means written **and** gated in this session. "Cloud → macOS" means written in this session, then compiled and tested on macOS (CI, or the Mac over Remote Control, or you pasting errors back). ✅ = merged with its gate green; ✍️ = written, not yet compiled on macOS; 🔨 = builds and its simulator tests pass on macOS (Xcode 27.2, iPhone 17 / iOS 26.5), hardware check pending.
 
 | # | Phase | Written | Gated | Gate |
 |---|---|---|---|---|
@@ -139,10 +139,10 @@ Each phase lists its **acceptance gate**. Nothing merges until the gate is green
 | **P4** ✅ | **API client**: DTOs, `FilmcaseClient`, `ServerEndpoints` (LAN ↔ Tailscale failover), pin *decision* logic (explicit approval, never silent), `HTTPTransport`, `TokenStore`/`PinStore` protocols. | Cloud | Cloud | `URLProtocol` stub tests against JSON recorded from P0; failover and pin-mismatch scenarios. |
 | **P4b** ✅ | **Connection + workflows**: `CameraConnection` state machine, `SlotBackup` (backup → push → verify → restore), `CollectionPush` (ordering, inter-slot delay, partial failure). | Cloud | Cloud | Table-driven transition tests; workflow tests against `FakePTPDevice` + `TestClock`, including stall → recover → cursor restored. |
 | **P4c** ✅ | **View models** (`@MainActor @Observable`), all features. | Cloud | Cloud | Swift Testing on Linux: state for loading/empty/error/offline, intents, push progress, backup prompt. |
-| **S1** ✍️ | **Spike app: ImageCaptureCore on X-T50.** Minimal SwiftUI target in `ios/Spikes/USBSpike`: authorize, browse, open session, read `0xD18C`/`0xD18D`/`0xD192` for C1–C7, write C7's name, read it back, time every call, export a log. | Cloud | Mac + camera | Results in `docs/ios_usb_spike.md` (written by the lead from your pasted log). |
+| **S1** 🔨 | **Spike app: ImageCaptureCore on X-T50.** Minimal SwiftUI target in `ios/Spikes/USBSpike`: authorize, browse, open session, read `0xD18C`/`0xD18D`/`0xD192` for C1–C7, write C7's name, read it back, time every call, export a log. | Cloud | Mac + camera | Results in `docs/ios_usb_spike.md` (written by the lead from your pasted log). |
 | **P5** | **ICCameraTransport** (adapter over `CameraTransport`/`PTPDevice`). | Cloud → macOS | CI build + manual | Compiles in CI; manual push to C7, verified (checklist §9). |
-| **P6** ✍️ | **App shell + library UI**, XcodeGen `ios/project.yml`, SwiftData adapters, onboarding (server URLs → pin → token). | Cloud → macOS | CI | CI: `xcodegen` + `xcodebuild test` (unit + one UI test on the demo flavor: add server → list → detail). |
-| **P7** ✍️ | **Camera UI**: slot grid, push sheet, backup/restore, collection push. | Cloud → macOS | CI + manual | CI UI test on the `FakePTPDevice` demo flavor; manual full C1–C7 push (checklist §9). |
+| **P6** 🔨 | **App shell + library UI**, XcodeGen `ios/project.yml`, SwiftData adapters, onboarding (server URLs → pin → token). | Cloud → macOS | CI | CI: `xcodegen` + `xcodebuild test` (unit + one UI test on the demo flavor: add server → list → detail). |
+| **P7** 🔨 | **Camera UI**: slot grid, push sheet, backup/restore, collection push. | Cloud → macOS | CI + manual | CI UI test on the `FakePTPDevice` demo flavor; manual full C1–C7 push (checklist §9). |
 | **S2** | **Spike: BLE protocol.** | Cloud (capture scripts + notes template) | Mac + camera | `docs/ble_protocol.md` with captured evidence, or a recorded **no-go**. |
 | **P8** | **BLE / PTP-IP transport** (only if S2 is a go). Protocol logic in FilmcaseKit, socket/CB adapter thin. | Cloud → macOS | Cloud + CI + manual | Push vectors pass through the new transport's fake on Linux; manual verified push. |
 | **P9** | Polish: Live Activity, App Intents, accessibility audit, TestFlight. | Cloud → macOS | CI + manual | `axiom-shipping` checklist; TestFlight checklist §9. |
