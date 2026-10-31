@@ -463,22 +463,22 @@ extension ICCameraBridge: ICCameraDeviceDelegate {
         // Not used by the spike.
     }
 
-    // API: ICCameraDeviceDelegate.cameraDevice(_:didCompleteDeleteFilesWithError:) (required)
+    // API: ICCameraDeviceDelegate.cameraDevice(_:didCompleteDeleteFilesWithError:) (optional)
     nonisolated func cameraDevice(_ camera: ICCameraDevice, didCompleteDeleteFilesWithError error: (any Error)?) {
         // Not used by the spike.
     }
 
-    // API: ICCameraDeviceDelegate.cameraDevice(_:didReceivePTPEvent:) (optional)
+    // API: ICCameraDeviceDelegate.cameraDevice(_:didReceivePTPEvent:) (required)
     nonisolated func cameraDevice(_ camera: ICCameraDevice, didReceivePTPEvent eventData: Data) {
         eventSink.yield(.ptpEvent(hex: ICCameraBridge.hex([UInt8](eventData))))
     }
 
-    // API: ICCameraDeviceDelegate.cameraDeviceDidRemoveAccessRestriction(_:) (optional)
+    // API: ICCameraDeviceDelegate.cameraDeviceDidRemoveAccessRestriction(_:) (required)
     nonisolated func cameraDeviceDidRemoveAccessRestriction(_ device: ICDevice) {
         eventSink.yield(.note("cameraDeviceDidRemoveAccessRestriction"))
     }
 
-    // API: ICCameraDeviceDelegate.cameraDeviceDidEnableAccessRestriction(_:) (optional)
+    // API: ICCameraDeviceDelegate.cameraDeviceDidEnableAccessRestriction(_:) (required)
     nonisolated func cameraDeviceDidEnableAccessRestriction(_ device: ICDevice) {
         eventSink.yield(.note("cameraDeviceDidEnableAccessRestriction"))
     }
