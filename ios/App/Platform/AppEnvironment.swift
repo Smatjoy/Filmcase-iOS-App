@@ -203,7 +203,8 @@ extension AppEnvironment: CameraFeatureEnvironment {
 }
 
 /// The user's server URLs (LAN first, Tailscale second). Not secret, so UserDefaults.
-struct EndpointSettings: EndpointSettingsStore {
+/// `@unchecked Sendable`: UserDefaults is documented thread-safe but not marked Sendable in the SDK.
+struct EndpointSettings: EndpointSettingsStore, @unchecked Sendable {
     private static let key = "dev.filmcase.endpoints"
     let defaults: UserDefaults
 
