@@ -231,13 +231,13 @@ final class ICCameraBridge: NSObject, @unchecked Sendable {
     }
 
     nonisolated static func describe(_ status: ICAuthorizationStatus) -> String {
-        // API: ICAuthorizationStatus (.notDetermined, .restricted, .denied, .authorized)
+        // API: ICAuthorizationStatus is an NS_TYPED_ENUM over NSString (.notDetermined, .restricted, .denied, .authorized)
         switch status {
         case .notDetermined: return "notDetermined (raw \(status.rawValue))"
         case .restricted: return "restricted (raw \(status.rawValue))"
         case .denied: return "denied (raw \(status.rawValue))"
         case .authorized: return "authorized (raw \(status.rawValue))"
-        @unknown default: return "unknown (raw \(status.rawValue))"
+        default: return "unknown (raw \(status.rawValue))"
         }
     }
 
@@ -422,8 +422,8 @@ extension ICCameraBridge: ICCameraDeviceDelegate {
         eventSink.yield(.deviceReady("deviceDidBecomeReady"))
     }
 
-    // API: ICCameraDeviceDelegate.deviceDidBecomeReady(withCompleteContentCatalog:) (optional)
-    nonisolated func deviceDidBecomeReady(withCompleteContentCatalog device: ICDevice) {
+    // API: ICCameraDeviceDelegate.deviceDidBecomeReady(withCompleteContentCatalog:) (required, takes ICCameraDevice)
+    nonisolated func deviceDidBecomeReady(withCompleteContentCatalog device: ICCameraDevice) {
         eventSink.yield(.deviceReady("deviceDidBecomeReady(withCompleteContentCatalog:)"))
     }
 
