@@ -36,10 +36,9 @@ CSRF_TRUSTED_ORIGINS: list[str] = env.list(
     default=[f"https://{FILMCASE_HOST}:{FILMCASE_HTTPS_PORT}"],
 )
 
-# Bearer token the native client sends to the JSON API under /api/. Empty on purpose: the API
-# fails closed (every /api/ request is answered 503) until a token is set, because the server
-# may be reachable beyond the LAN and an open API is never acceptable. Deliberately not a
-# constance setting: a secret does not belong on the settings page or in the database.
+# Optional bearer token for the read-only JSON API under /api/. Empty leaves the API open, like
+# the browser pages, which serve the same data (ADR 022). Deliberately not a constance setting:
+# a secret does not belong on the settings page or in the database.
 FILMCASE_API_TOKEN: str = env.str("FILMCASE_API_TOKEN", default="")
 
 INSTALLED_APPS = [

@@ -35,21 +35,21 @@ No DRF. The surface is a handful of read-only endpoints over data the domain lay
 
 Writes are not part of this. Editing stays in the browser, and the one write the native client performs, to the camera, does not touch the server.
 
-### A static bearer token, `FILMCASE_API_TOKEN`
+### An optional static bearer token, `FILMCASE_API_TOKEN`
 
-Every `/api/` request must carry `Authorization: Bearer <token>`, compared with `hmac.compare_digest`. A missing or wrong token is a 401 with `WWW-Authenticate: Bearer`.
+When the token is set, every `/api/` request must carry `Authorization: Bearer <token>`, compared with `hmac.compare_digest`. A missing or wrong token is a 401 with `WWW-Authenticate: Bearer`.
 
 This is a single-user homelab reached over a LAN and Tailscale. Accounts, sessions, token issuing and revocation, and OAuth would each be a feature to build and a surface to get wrong, for one person with one phone. A long random value in the environment, entered once in the app and kept in the Keychain, is proportionate. Rotating it is editing one variable and restarting.
 
 It is read from the environment like the other deployment settings and deliberately not registered with constance: a secret does not belong on the settings page or in the database.
 
-### Fail closed when the token is unset
+### Open when the token is unset (amended)
 
-With `FILMCASE_API_TOKEN` empty, every `/api/` request is answered 503 with a body saying why. The default is empty, so a fresh install exposes nothing new until the owner opts in.
+With `FILMCASE_API_TOKEN` empty, the API is open, and the app's token field is optional.
 
-The alternative, an open API when no token is configured, is the failure that matters here: the server is reachable off-LAN, and the likeliest way to end up with an open API is to upgrade and not notice a new setting. 503 rather than 401 or 404 because the server is behaving as configured and the fix is on the server, which is what the status says, and the message tells the owner what to set.
+This was first decided the other way: fail closed, every `/api/` request answered 503 until the owner set a token, so an upgrade could not open anything unnoticed. The owner reversed it on 2026-11-01: they do not want to manage an API key for a single-user homelab. What makes that acceptable is that the API is read-only and serves the same recipes, collections and images the browser pages already serve without authentication (see `docs/docker.md`), so an open API exposes nothing an open Filmcase does not. Anyone who wants the API, or the whole server, closed off sets the token or puts it behind their reverse proxy's authentication.
 
-The check runs before anything else, including before routing to a record, so an unauthenticated caller cannot tell an existing recipe from a missing one, and an unknown path under `/api/` meets the same check rather than Django's HTML 404.
+When the token is set, the check runs before anything else, including before routing to a record, so an unauthenticated caller cannot tell an existing recipe from a missing one, and an unknown path under `/api/` meets the same check rather than Django's HTML 404.
 
 ### The check is a decorator scoped to `/api/`, not middleware
 

@@ -101,20 +101,26 @@ class TestAuthentication:
 
         assert response.status_code == 401
 
-    def test_503_when_no_token_is_configured(self, client, make_url, settings):
+    def test_200_without_a_token_when_none_is_configured(self, client, make_url, settings, tmp_path):
         settings.FILMCASE_API_TOKEN = ""
 
-        response = client.get(make_url(), HTTP_AUTHORIZATION="Bearer ")
+        with override_settings(THUMBNAIL_CACHE_DIR=tmp_path):
+            response = client.get(make_url())
 
-        assert response.status_code == 503
-        assert "FILMCASE_API_TOKEN" in json.loads(response.content)["error"]
+        assert response.status_code == 200
 
-    def test_503_when_unset_even_if_the_caller_sends_a_token(self, client, make_url, settings):
+    def test_a_sent_token_is_ignored_when_none_is_configured(self, client, make_url, settings, tmp_path):
         settings.FILMCASE_API_TOKEN = ""
 
-        response = client.get(make_url(), **AUTH)
+        with override_settings(THUMBNAIL_CACHE_DIR=tmp_path):
+            response = client.get(make_url(), HTTP_AUTHORIZATION="Bearer anything")
 
-        assert response.status_code == 503
+        assert response.status_code == 200
+
+    def test_405_without_a_token_when_none_is_configured(self, client, make_url, settings):
+        settings.FILMCASE_API_TOKEN = ""
+
+        assert client.post(make_url()).status_code == 405
 
     def test_405_for_anything_but_get(self, client, make_url):
         response = client.post(make_url(), **AUTH)
@@ -144,10 +150,13 @@ class TestOutsideTheApiPrefix:
     def test_unknown_api_paths_require_the_token_too(self, client):
         assert client.get("/api/v1/nope/").status_code == 401
 
-    def test_unknown_api_paths_are_503_when_unset(self, client, settings):
+    def test_unknown_api_paths_are_json_404_when_unset(self, client, settings):
         settings.FILMCASE_API_TOKEN = ""
 
-        assert client.get("/api/v1/nope/").status_code == 503
+        response = client.get("/api/v1/nope/")
+
+        assert response.status_code == 404
+        assert response["Content-Type"] == "application/json"
 
 
 @pytest.mark.django_db

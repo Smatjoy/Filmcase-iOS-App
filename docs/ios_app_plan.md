@@ -132,7 +132,7 @@ Each phase lists its **acceptance gate**. Nothing merges until the gate is green
 
 | # | Phase | Written | Gated | Gate |
 |---|---|---|---|---|
-| **P0** ✅ | **Server JSON API + token auth** (Django). `/api/v1/` recipes, collections, thumbnails, mirrored camera JSON; bearer `FILMCASE_API_TOKEN`, fail-closed when unset; ADR 022. | Cloud | Cloud | Full `pytest`, import-linter, mypy. |
+| **P0** ✅ | **Server JSON API + token auth** (Django). `/api/v1/` recipes, collections, thumbnails, mirrored camera JSON; optional bearer `FILMCASE_API_TOKEN` (open when unset, amended 2026-11-01); ADR 022. | Cloud | Cloud | Full `pytest`, import-linter, mypy. |
 | **P1** ✅ | **FilmcaseKit: PTP framing.** | Cloud | Cloud | `ptp_vectors.json` byte-for-byte (42 cases). |
 | **P2** ✅ | **Domain**: `Recipe`, `CameraProfile.xt50`, `Validation`, `RecipePTPValues`. | Cloud | Cloud | `recipe_ptp_vectors.json`. |
 | **P3** ✅ | **Strategy + use cases**, `Clock`, `FakePTPDevice`. | Cloud | Cloud | `push_vectors.json` replays exactly. |
@@ -191,7 +191,7 @@ Three routes, in order of preference:
 2. **Skills**: Axiom installed into this session's `~/.claude/skills` (27 router skills). To make it persistent, add the `CharlesWiltgen/Axiom` marketplace on claude.ai. The "Swift iOS skills" source is still to be confirmed.
 3. **Xcode project**: XcodeGen (`ios/project.yml`), so the project is reviewable text written in the cloud.
 4. **Minimum iOS**: **iOS 26** (decided).
-5. **Remote access**: **LAN + Tailscale with automatic switching** (decided). Token auth mandatory; the API fails closed if the token is unset. The HTML UI stays unauthenticated (ADR 022, deferred).
+5. **Remote access**: **LAN + Tailscale with automatic switching** (decided). Token auth optional; the API is open when the token is unset, like the HTML UI (amended 2026-11-01). The HTML UI stays unauthenticated (ADR 022, deferred).
 6. **Upstream**: P0 is a natural upstream PR to `gosku/filmcase`. The iOS app lives in `ios/` in this fork.
 7. **Actions spend**: pending your OK before `ios.yml` is pushed.
 
