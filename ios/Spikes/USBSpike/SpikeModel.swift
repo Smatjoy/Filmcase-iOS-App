@@ -60,7 +60,7 @@ final class SpikeModel {
     var contentsStatus = "(not read yet)"
     var sessionOpen = false
     var isBusy = false
-    var framing: CommandFraming = .fullContainer
+    var framing: CommandFraming = .bareDataOut
     var slots: [SlotReading] = []
     var summary = ""
     var sawNotAuthorized = false

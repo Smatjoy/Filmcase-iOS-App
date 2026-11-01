@@ -16,8 +16,9 @@ compile errors first; the `// API:` comments in `ICCameraBridge.swift` name ever
    - **Read slots** (C1-C7 names and film sim values).
    - **Write C7 name** (writes `FCTEST`, reads back, restores the original, reads back).
    - **Stall drill** (20 reads; timeouts trigger close, reopen, restore cursor).
-6. If Read slots fails with every call erroring or timing out, flip **Command framing** to
-   *Command only*, and repeat from Read slots. The log shows raw hex either way.
+6. **Command framing** defaults to *Bare data out*, which works on the X-T50 (see
+   `docs/ios_usb_spike.md`). *Full container* gets OK replies but the camera ignores the written
+   value, so every slot reads as C1. The log shows raw hex either way.
 7. **Prepare log file**, then the share button; AirDrop or paste the file.
 
 ## What to paste back
