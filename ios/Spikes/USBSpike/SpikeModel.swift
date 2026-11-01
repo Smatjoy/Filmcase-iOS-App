@@ -11,6 +11,9 @@ enum CommandFraming: String, CaseIterable, Identifiable, Sendable {
     case fullContainer = "Full container"
     /// Operation code (uint16 LE) + params (uint32 LE each); out data is the bare payload.
     case commandOnly = "Command only"
+    /// Full command container, but the out data is the bare payload (ImageCaptureCore strips the
+    /// data-in header, so it likely adds the data-out header itself).
+    case bareDataOut = "Bare data out"
 
     var id: String { rawValue }
 }
@@ -232,7 +235,7 @@ final class SpikeModel {
 
         let command: [UInt8]
         switch mode {
-        case .fullContainer:
+        case .fullContainer, .bareDataOut:
             command = commandPacket(code: op, txId: tx, params: params)
         case .commandOnly:
             command = packUInt16LE(op) + params.flatMap { packUInt32LE($0) }
@@ -241,7 +244,7 @@ final class SpikeModel {
         if let payload = outPayload {
             switch mode {
             case .fullContainer: outBytes = dataPacket(code: op, txId: tx, payload: payload)
-            case .commandOnly: outBytes = payload
+            case .commandOnly, .bareDataOut: outBytes = payload
             }
         }
 
