@@ -55,6 +55,14 @@ public final class RecipeDetailModel {
     }
 
     private func loadCameraRecipe() async {
+        // The server serves no camera payload for an unnamed recipe (a slot needs a name), so
+        // asking would only fail with a 404 that explains nothing.
+        if detail?.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
+            cameraRecipe = nil
+            payloadError = Self.unnamedReason
+            await evaluateSending()
+            return
+        }
         do {
             let data = try await client.cameraPayload(recipeId: recipeID)
             cameraRecipe = try JSONDecoder().decode(Recipe.self, from: data)
@@ -68,13 +76,15 @@ public final class RecipeDetailModel {
         await evaluateSending()
     }
 
+    private static let unnamedReason = "Name this recipe in Filmcase on the web before sending it to a camera."
+
     private func evaluateSending() async {
         guard let recipe = cameraRecipe else {
             block(payloadError ?? "The camera data for this recipe is not loaded yet.")
             return
         }
         if recipe.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            block("Name this recipe before sending it to a camera.")
+            block(Self.unnamedReason)
             return
         }
         guard let connected = await camera?.connectedCamera() else {

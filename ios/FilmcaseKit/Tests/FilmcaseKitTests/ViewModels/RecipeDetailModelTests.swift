@@ -174,7 +174,7 @@ struct RecipeDetailModelTests {
         await model.load()
         #expect(model.state == .loaded)
         #expect(!model.canSendToCamera)
-        #expect(model.sendBlockedReason == "Name this recipe before sending it to a camera.")
+        #expect(model.sendBlockedReason == "Name this recipe in Filmcase on the web before sending it to a camera.")
     }
 
     @Test func aRecipeTheConnectedCameraCanTakeCanBeSent() async {
@@ -215,6 +215,23 @@ struct RecipeDetailModelTests {
         source.set(nil)
         await model.recheckCamera()
         #expect(model.canSendToCamera)
+    }
+
+    @Test func anUnnamedRecipeAsksForANameWithoutFetchingCameraData() async {
+        var object = jsonObject(fixture: "recipe_detail")
+        object["name"] = ""
+        let body = json(object)
+        let rig = ModelRig(script: { request in
+            guard request.isAuthenticated else { return .fixture("recipe_list") }
+            let path = request.url?.path ?? ""
+            return path.hasSuffix("camera-payload.json") ? .fixture("error_404", status: 404) : reply(body)
+        })
+        let model = RecipeDetailModel(recipeID: 1, client: rig.client)
+        await model.load()
+        #expect(model.state == .loaded)
+        #expect(!model.canSendToCamera)
+        #expect(model.sendBlockedReason == "Name this recipe in Filmcase on the web before sending it to a camera.")
+        #expect(!rig.transport.requests.contains { $0.url?.path.hasSuffix("camera-payload.json") == true })
     }
 
     @Test func unreadableCameraDataKeepsTheDetailButBlocksSending() async {
