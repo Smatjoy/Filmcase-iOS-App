@@ -23,7 +23,7 @@ final class AppEnvironment {
     enum CameraMode: Sendable, Equatable {
         /// A scripted X-T50 with seven named slots; no hardware.
         case demo
-        /// ImageCaptureCore over USB-C (P5; a placeholder until then).
+        /// ImageCaptureCore over USB-C (`ICCameraTransport`).
         case usb
     }
 
