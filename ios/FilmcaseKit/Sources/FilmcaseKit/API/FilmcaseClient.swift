@@ -27,7 +27,8 @@ public struct RecipeFilters: Sendable, Equatable {
 
 /// Typed access to the read-only `/api/v1/` API.
 ///
-/// Every request carries `Authorization: Bearer <token>` and goes to the endpoint
+/// Every request carries `Authorization: Bearer <token>` when a token is stored (servers
+/// without `FILMCASE_API_TOKEN` need none) and goes to the endpoint
 /// `ServerEndpoints` currently considers active. On a transport error it retries
 /// once on the next endpoint (updating the cache); if that fails too the result is
 /// `.noReachableServer`. HTTP error statuses never fail over.
@@ -126,9 +127,8 @@ public struct FilmcaseClient: Sendable {
     }
 
     private func get(_ path: String, query: [URLQueryItem] = []) async throws -> Data {
-        guard let token = try await tokenStore.token(), !token.isEmpty else {
-            throw FilmcaseClientError.unauthorized
-        }
+        let stored = try await tokenStore.token()
+        let token = stored?.isEmpty == false ? stored : nil
         let base = try await endpoints.activeEndpoint()
         do {
             return try await send(to: base, path: path, query: query, token: token)
@@ -145,11 +145,13 @@ public struct FilmcaseClient: Sendable {
         }
     }
 
-    private func send(to base: URL, path: String, query: [URLQueryItem], token: String) async throws -> Data {
+    private func send(to base: URL, path: String, query: [URLQueryItem], token: String?) async throws -> Data {
         var request = URLRequest(url: apiURL(base, path: path, query: query))
         request.httpMethod = "GET"
         request.timeoutInterval = requestTimeout
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let data: Data
         let response: URLResponse

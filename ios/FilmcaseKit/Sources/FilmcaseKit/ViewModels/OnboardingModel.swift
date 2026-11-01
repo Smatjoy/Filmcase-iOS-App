@@ -23,14 +23,12 @@ public final class OnboardingModel {
     public var tailscaleURL: String {
         didSet { if tailscaleURL != oldValue { tailscaleURLError = nil } }
     }
-    public var token = "" {
-        didSet { if token != oldValue { tokenError = nil } }
-    }
+    /// Optional: only a server with `FILMCASE_API_TOKEN` set asks for one.
+    public var token = ""
 
     public private(set) var state: State = .idle
     public private(set) var lanURLError: String?
     public private(set) var tailscaleURLError: String?
-    public private(set) var tokenError: String?
 
     @ObservationIgnored private let tokenStore: any TokenStore
     @ObservationIgnored private let endpoints: ServerEndpoints
@@ -57,12 +55,9 @@ public final class OnboardingModel {
         tailscaleURL = saved.count > 1 ? saved[1].absoluteString : ""
     }
 
-    /// True when no token is stored or no server is configured.
-    public static func needsOnboarding(tokenStore: any TokenStore, endpoints: ServerEndpoints) async -> Bool {
-        let stored = (try? await tokenStore.token()) ?? nil
-        let hasToken = !(stored ?? "").isEmpty
-        let hasEndpoints = !(await endpoints.endpoints.isEmpty)
-        return !(hasToken && hasEndpoints)
+    /// True when no server is configured. The token is optional.
+    public static func needsOnboarding(endpoints: ServerEndpoints) async -> Bool {
+        await endpoints.endpoints.isEmpty
     }
 
     public var isConnecting: Bool { state == .connecting }
@@ -75,7 +70,12 @@ public final class OnboardingModel {
         guard let urls = validate() else { return }
         state = .connecting
         do {
-            try await tokenStore.save(token: token.trimmingCharacters(in: .whitespacesAndNewlines))
+            let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                try await tokenStore.deleteToken()
+            } else {
+                try await tokenStore.save(token: trimmed)
+            }
             settings.save(urls)
             await endpoints.update(endpoints: urls)
             _ = try await client.recipes(page: 1, pageSize: 1)
@@ -122,9 +122,7 @@ public final class OnboardingModel {
         if lan.error == nil, tailscale.error == nil, urls.isEmpty {
             lanURLError = "Enter at least one server URL."
         }
-        tokenError = token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "Enter the API token." : nil
-        guard lanURLError == nil, tailscaleURLError == nil, tokenError == nil else { return nil }
+        guard lanURLError == nil, tailscaleURLError == nil else { return nil }
         return urls
     }
 

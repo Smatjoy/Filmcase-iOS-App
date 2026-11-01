@@ -154,7 +154,7 @@ final class AppEnvironment {
     }
 
     func needsOnboarding() async -> Bool {
-        await OnboardingModel.needsOnboarding(tokenStore: tokenStore, endpoints: endpoints)
+        await OnboardingModel.needsOnboarding(endpoints: endpoints)
     }
 
     func makeOnboardingModel() -> OnboardingModel {

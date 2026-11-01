@@ -119,13 +119,13 @@ struct FilmcaseClientTests {
         #expect(error?.kind == "decoding")
     }
 
-    @Test("without a stored token it fails as unauthorized and sends nothing")
-    func noToken() async {
-        let rig = APIRig(token: nil)
-        let error = await clientError { try await rig.client.recipes() }
-        #expect(error?.kind == "unauthorized")
-        #expect(rig.lan.requests.isEmpty)
-        #expect(rig.tailscale.requests.isEmpty)
+    @Test("without a stored token it sends no Authorization header")
+    func noToken() async throws {
+        let rig = APIRig(lan: { _ in .fixture("recipe_list") }, token: nil)
+        _ = try await rig.client.recipes()
+        let requests = rig.lan.requests
+        #expect(!requests.isEmpty)
+        #expect(requests.allSatisfy { $0.value(forHTTPHeaderField: "Authorization") == nil })
     }
 
     @Test("a pin mismatch surfaces with the host and does not fail over")

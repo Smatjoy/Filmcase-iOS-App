@@ -21,11 +21,14 @@ struct OnboardingView: View {
                     urlField("LAN URL (https://filmcase.lan)", text: $model.lanURL, error: model.lanURLError)
                     urlField("Tailscale URL (optional)", text: $model.tailscaleURL, error: model.tailscaleURLError)
                 }
-                Section("API token") {
-                    SecureField("Token", text: $model.token)
+                Section {
+                    SecureField("Token (optional)", text: $model.token)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    fieldError(model.tokenError)
+                } header: {
+                    Text("API token")
+                } footer: {
+                    Text("Only needed if your server sets FILMCASE_API_TOKEN.")
                 }
                 Section {
                     Button("Connect") { Task { await model.connect() } }

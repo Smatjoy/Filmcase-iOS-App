@@ -4,9 +4,9 @@ import FoundationNetworking
 #endif
 
 public enum FilmcaseClientError: Error, Sendable {
-    /// 401, or no token is stored. The server is the right one; the token is wrong.
+    /// 401: the server requires a token and the stored one is missing or wrong.
     case unauthorized
-    /// 503: the server runs but `FILMCASE_API_TOKEN` is not set on it.
+    /// 503 from a server older than the optional token, where `FILMCASE_API_TOKEN` is unset.
     case serverNotConfigured
     /// 404.
     case notFound

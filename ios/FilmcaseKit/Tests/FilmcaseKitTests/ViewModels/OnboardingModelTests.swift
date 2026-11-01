@@ -67,7 +67,12 @@ struct OnboardingModelTests {
         #expect(rig.model.validate() == nil)
         #expect(rig.model.lanURLError == "Enter at least one server URL.")
         #expect(rig.model.tailscaleURLError == nil)
-        #expect(rig.model.tokenError == "Enter the API token.")
+    }
+
+    @Test func theTokenIsOptional() {
+        let rig = OnboardingRig()
+        rig.model.lanURL = "https://filmcase.lan"
+        #expect(rig.model.validate() == [URL(string: "https://filmcase.lan")!])
     }
 
     @Test(arguments: [
@@ -93,7 +98,6 @@ struct OnboardingModelTests {
         #expect(rig.model.validate() == nil)
         #expect(rig.model.lanURLError == "Only https:// addresses are supported.")
         #expect(rig.model.tailscaleURLError == "Start the address with https://")
-        #expect(rig.model.tokenError == nil)
     }
 
     @Test func oneURLIsEnoughAndLANComesFirst() {
@@ -109,9 +113,6 @@ struct OnboardingModelTests {
     @Test func editingAFieldClearsItsMessage() {
         let rig = OnboardingRig()
         rig.model.validate()
-        #expect(rig.model.tokenError != nil)
-        rig.model.token = "x"
-        #expect(rig.model.tokenError == nil)
         #expect(rig.model.lanURLError != nil)
         rig.model.lanURL = "h"
         #expect(rig.model.lanURLError == nil)
@@ -134,11 +135,10 @@ struct OnboardingModelTests {
         let rig = OnboardingRig(savedURLs: urls)
         #expect(rig.model.lanURL == "https://a.lan")
         #expect(rig.model.tailscaleURL == "https://b.ts.net")
-        #expect(await OnboardingModel.needsOnboarding(tokenStore: rig.tokenStore, endpoints: rig.endpoints))
-        await rig.tokenStore.save(token: "t")
-        #expect(await !OnboardingModel.needsOnboarding(tokenStore: rig.tokenStore, endpoints: rig.endpoints))
-        await rig.tokenStore.save(token: "")
-        #expect(await OnboardingModel.needsOnboarding(tokenStore: rig.tokenStore, endpoints: rig.endpoints))
+        #expect(await rig.tokenStore.token() == nil)
+        #expect(await !OnboardingModel.needsOnboarding(endpoints: rig.endpoints))
+        await rig.endpoints.update(endpoints: [])
+        #expect(await OnboardingModel.needsOnboarding(endpoints: rig.endpoints))
     }
 
     @Test func connectingSavesEverythingThenReportsConnected() async throws {
