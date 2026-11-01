@@ -307,17 +307,19 @@ final class ICCameraBridge: NSObject, @unchecked Sendable {
         return try await withCheckedThrowingContinuation { (c: CheckedContinuation<RawPTPResult, any Error>) in
             let r = OnceResumer<RawPTPResult>(c)
             r.arm(timeout: timeout, timeoutError: BridgeError.timeout("requestSendPTPCommand"))
-            // API: ICCameraDevice.requestSendPTPCommand(_ command: Data, outData: Data,
-            //      completion: @escaping (Data, Data, Error?) -> Void)
+            // API: ICCameraDevice.requestSendPTPCommand(_ command: Data, outData: Data?,
+            //      completion: @escaping (Data, Data, Error?) -> Void). The header names the
+            //      block arguments (responseData, ptpResponseData, error): the first is the
+            //      data-in phase, the second the PTP response container (confirmed on an X-T50).
             device.requestSendPTPCommand(command, outData: outData, completion: Self.ptpCompletion(r))
         }
     }
 
     nonisolated private static func ptpCompletion(_ r: OnceResumer<RawPTPResult>) -> @Sendable (Data, Data, (any Error)?) -> Void {
-        { responseData, inData, error in
+        { inData, responseContainer, error in
             var info: ErrorInfo?
             if let error { info = ErrorInfo(error) }
-            r.resume(returning: RawPTPResult(response: [UInt8](responseData), inData: [UInt8](inData), error: info))
+            r.resume(returning: RawPTPResult(response: [UInt8](responseContainer), inData: [UInt8](inData), error: info))
         }
     }
 
