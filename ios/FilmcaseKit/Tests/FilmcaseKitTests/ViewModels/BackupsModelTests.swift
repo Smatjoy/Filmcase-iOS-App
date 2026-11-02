@@ -70,7 +70,7 @@ struct BackupsModelTests {
             properties: [BackupProperty(name: "Sharpness", code: sharpness, value: 3)])
         let model = BackupsModel(store: rig.store, workflow: rig.workflow)
         await model.restore(backup)
-        #expect(model.message == "C2: the camera did not take Sharpness.")
+        #expect(model.message == "C2 restored, except Sharpness.")
         #expect(model.successCount == 0)
     }
 

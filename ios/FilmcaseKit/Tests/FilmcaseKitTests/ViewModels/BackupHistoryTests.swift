@@ -206,7 +206,7 @@ struct BackupsModelHistoryTests {
         let model = BackupsModel(store: store, workflow: rig.workflow)
         await model.load()
         await model.restoreOriginals()
-        #expect(model.message == "Restored the originals of 0 slots. C4: the camera did not take Sharpness.")
+        #expect(model.message == "Restored the originals of 1 slot. C4: Sharpness not restored.")
         #expect(model.successCount == 0)
     }
 }

@@ -118,6 +118,11 @@ public enum UserMessages {
 
     // --- slot push and restore results ---
 
+    /// Display labels for property names, joined: "Sharpness, Clarity".
+    static func labelList(_ names: [String]) -> String {
+        names.map(propertyLabel).joined(separator: ", ")
+    }
+
     /// Property names as the server serves them (`HighLightTone`) spaced for display.
     public static func propertyLabel(_ name: String) -> String {
         PropertyDiffRow(name: name).label
@@ -172,14 +177,15 @@ public enum UserMessages {
     /// What happened when the originals were restored: one sentence, plus one per problem.
     public static func restoreOriginalsText(results: [Int: SlotPushResult]) -> String {
         if results.isEmpty { return noOriginalsText }
-        let verified = results.values.filter { $0 == .verified }.count
-        var parts = ["Restored the originals of \(slotCountText(verified))."]
+        // A slot with a setting the camera refused was still restored apart from that setting.
+        let restored = results.values.filter { $0 != .connectionLost }.count
+        var parts = ["Restored the originals of \(slotCountText(restored))."]
         for slot in results.keys.sorted() {
             guard let result = results[slot] else { continue }
             switch result {
             case .verified: break
             case .partiallyFailed(let names):
-                parts.append("C\(slot): the camera did not take \(names.joined(separator: ", ")).")
+                parts.append("C\(slot): \(labelList(names)) not restored.")
             case .connectionLost:
                 parts.append("C\(slot): not restored, the camera connection was lost.")
             }
@@ -193,7 +199,7 @@ public enum UserMessages {
         case .verified:
             "C\(slot) restored."
         case .partiallyFailed(let names):
-            "C\(slot): the camera did not take \(names.joined(separator: ", "))."
+            "C\(slot) restored, except \(labelList(names))."
         case .connectionLost:
             "The camera connection was lost."
         }

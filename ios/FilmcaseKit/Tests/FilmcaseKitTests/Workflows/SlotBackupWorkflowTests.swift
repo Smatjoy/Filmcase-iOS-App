@@ -140,6 +140,52 @@ struct SlotBackupWorkflowTests {
         #expect(try await rig.workflow.restore(backup) == .partiallyFailed(["Sharpness"]))
     }
 
+    /// As the X-T50 does: a slot on Auto white balance and a colour simulation still reads
+    /// back a colour temperature and monochrome toning, but refuses them as writes.
+    @Test func restoreSkipsSettingsTheSlotDoesNotUse() async throws {
+        let kelvinCode = TestSupport.code("WhiteBalanceColorTemperature")
+        let warmCool = TestSupport.code("MonochromaticColorWarmCool")
+        let magentaGreen = TestSupport.code("MonochromaticColorMagentaGreen")
+        let rig = try await WorkflowRig(setRejectionCodes: [kelvinCode: 0x201C, warmCool: 0x201C, magentaGreen: 0x201C])
+        let auto = try #require(TestSupport.encodings.whiteBalanceToPtp["Auto"])
+        let provia = try #require(TestSupport.encodings.filmSimulationToPtp["Provia"])
+        let backup = SlotBackup(
+            cameraName: ConnectionRig.cameraName, slotIndex: slot, capturedAt: Date(),
+            slotName: "California Hues", properties: [
+                BackupProperty(name: "FilmSimulation", code: TestSupport.code("FilmSimulation"), value: provia),
+                BackupProperty(name: "WhiteBalance", code: TestSupport.code("WhiteBalance"), value: auto),
+                BackupProperty(name: "WhiteBalanceColorTemperature", code: kelvinCode, value: 5200),
+                BackupProperty(name: "MonochromaticColorWarmCool", code: warmCool, value: 0),
+                BackupProperty(name: "MonochromaticColorMagentaGreen", code: magentaGreen, value: 0),
+            ])
+
+        #expect(try await rig.workflow.restore(backup) == .verified)
+        let written = await rig.propertyWrites.map(\.code)
+        #expect(!written.contains(kelvinCode))
+        #expect(!written.contains(warmCool))
+        #expect(!written.contains(magentaGreen))
+    }
+
+    @Test func restoreWritesTheSettingsTheSlotUses() async throws {
+        let kelvinCode = TestSupport.code("WhiteBalanceColorTemperature")
+        let warmCool = TestSupport.code("MonochromaticColorWarmCool")
+        let rig = try await WorkflowRig()
+        let kelvin = try #require(TestSupport.encodings.whiteBalanceToPtp["Kelvin"])
+        let acros = try #require(TestSupport.encodings.filmSimulationToPtp["Acros STD"])
+        let backup = SlotBackup(
+            cameraName: ConnectionRig.cameraName, slotIndex: slot, capturedAt: Date(),
+            slotName: "Tri-X", properties: [
+                BackupProperty(name: "FilmSimulation", code: TestSupport.code("FilmSimulation"), value: acros),
+                BackupProperty(name: "WhiteBalance", code: TestSupport.code("WhiteBalance"), value: kelvin),
+                BackupProperty(name: "WhiteBalanceColorTemperature", code: kelvinCode, value: 5600),
+                BackupProperty(name: "MonochromaticColorWarmCool", code: warmCool, value: 20),
+            ])
+
+        #expect(try await rig.workflow.restore(backup) == .verified)
+        #expect(try await rig.device.getInt(kelvinCode) == 5600)
+        #expect(try await rig.device.getInt(warmCool) == 20)
+    }
+
     @Test func restoreRefusesABackupFromAnotherCameraModel() async throws {
         let rig = try await WorkflowRig()
         let backup = SlotBackup(

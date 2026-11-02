@@ -177,7 +177,7 @@ func writeBackup(
     }
 
     var writes: [(code: UInt16, value: PTPPropertyValue)] = [(nameCode, .string(backup.slotName))]
-    writes += backup.properties.map { ($0.code, .int($0.value)) }
+    writes += restorableProperties(of: backup, encodings: runtime.config.encodings).map { ($0.code, .int($0.value)) }
     var names: [UInt16: String] = [nameCode: "SlotName"]
     for property in backup.properties { names[property.code] = property.name }
 
@@ -195,4 +195,30 @@ func writeBackup(
     }
     failed += try await verifyWrittenProperties(device, written: written, runtime: runtime)
     return failed.map { names[$0] ?? formatCode($0) }
+}
+
+/// The properties a restore writes back: every stored one except those that do not apply to
+/// the slot's own settings, which a push never writes either (`recipeToPtpValues`). The camera
+/// keeps a value for them anyway and reads it back, but refuses it as a write: the colour
+/// temperature when white balance is not Kelvin, and monochrome toning on a colour simulation.
+/// Writing them would only report a failure for a setting the slot does not use.
+func restorableProperties(of backup: SlotBackup, encodings: ClientEncodings) -> [BackupProperty] {
+    let values = Dictionary(backup.properties.map { ($0.name, $0.value) }, uniquingKeysWith: { first, _ in first })
+    return backup.properties.filter { property in
+        switch property.name {
+        case "WhiteBalanceColorTemperature":
+            guard let wb = values["WhiteBalance"], let kelvin = encodings.whiteBalanceToPtp["Kelvin"] else { return true }
+            return wb == kelvin
+        case "MonochromaticColorWarmCool", "MonochromaticColorMagentaGreen":
+            guard let sim = values["FilmSimulation"] else { return true }
+            return monochromeSimulations(encodings).contains(sim)
+        default:
+            return true
+        }
+    }
+}
+
+/// The film simulations that take monochrome toning: the Acros and Monochrome families.
+func monochromeSimulations(_ encodings: ClientEncodings) -> Set<Int> {
+    Set(encodings.filmSimulationToPtp.filter { $0.key.hasPrefix("Acros") || $0.key.hasPrefix("Monochrome") }.values)
 }
