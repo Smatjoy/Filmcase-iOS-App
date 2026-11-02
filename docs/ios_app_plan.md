@@ -146,7 +146,7 @@ Each phase lists its **acceptance gate**. Nothing merges until the gate is green
 | **P7** 🔨 | **Camera UI**: slot grid, push sheet, backup/restore, collection push. | Cloud → macOS | CI + manual | CI UI test on the `FakePTPDevice` demo flavor; manual full C1–C7 push (checklist §9). |
 | **S2** ⏸ | **Spike: BLE protocol.** Parked as a todo (2026-11-02). | Cloud (capture scripts + notes template) | Mac + camera | `docs/ble_protocol.md` with captured evidence, or a recorded **no-go**. |
 | **P8** | **BLE / PTP-IP transport** (only if S2 is a go). Protocol logic in FilmcaseKit, socket/CB adapter thin. | Cloud → macOS | Cloud + CI + manual | Push vectors pass through the new transport's fake on Linux; manual verified push. |
-| **P9** | Polish: Live Activity, App Intents, accessibility audit, TestFlight. | Cloud → macOS | CI + manual | `axiom-shipping` checklist; TestFlight checklist §9. |
+| **P9** 🔨 (TestFlight deferred) | Polish: Live Activity, App Intents, accessibility audit, TestFlight. | Cloud → macOS | CI + manual | `axiom-shipping` checklist; TestFlight checklist §9. |
 
 Wave order: **P0 ∥ P1** → **P2 ∥ P4** → **P3 ∥ S1-code** → **P4b ∥ P6-scaffold** (project.yml + CI) → **P4c ∥ P5** → **P7** → S2/P8 → P9.
 
