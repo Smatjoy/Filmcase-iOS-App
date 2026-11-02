@@ -197,6 +197,16 @@ struct OnboardingModelTests {
 
     // --- trust on first use ---
 
+    @Test func theSpokenFingerprintExistsOnlyWhileTrustIsAsked() async {
+        let rig = OnboardingRig(pinned: false)
+        rig.fill()
+        #expect(rig.model.accessibilityFingerprint == nil)
+        await rig.model.connect()
+        #expect(rig.model.accessibilityFingerprint == "AA, BB, CC, DD, 00, 11")
+        rig.model.cancelTrust()
+        #expect(rig.model.accessibilityFingerprint == nil)
+    }
+
     @Test func anUnpinnedHostIsShownForApprovalThenTrustedAndConnected() async throws {
         let rig = OnboardingRig(pinned: false)
         rig.fill()

@@ -39,6 +39,10 @@ public final class LibraryModel {
     /// Set when the next page failed; the rows already shown stay.
     public private(set) var loadMoreError: String?
     public private(set) var selectedFacets: [String: [String]] = [:]
+    /// What to say once a search or filter change has finished loading ("12 recipes",
+    /// "1 recipe", "No recipes match"). Nil while loading, after a failure, and until the
+    /// first search or filter change; the first load and a refresh never set it.
+    public private(set) var resultsAnnouncement: String?
 
     public var searchText = "" {
         didSet { if searchText != oldValue { searchTextChanged() } }
@@ -168,14 +172,14 @@ public final class LibraryModel {
             do { try await clock.sleep(for: LibraryModel.searchDebounce) } catch { return }
             guard !Task.isCancelled, let self else { return }
             self.debounceTask = nil
-            _ = self.beginLoad(page: 1, append: false, refreshing: false)
+            _ = self.beginLoad(page: 1, append: false, refreshing: false, announcesResults: true)
         }
     }
 
     private func filtersChanged() {
         debounceTask?.cancel()
         debounceTask = nil
-        _ = beginLoad(page: 1, append: false, refreshing: false)
+        _ = beginLoad(page: 1, append: false, refreshing: false, announcesResults: true)
     }
 
     private var currentFilters: RecipeFilters {
@@ -186,7 +190,9 @@ public final class LibraryModel {
 
     /// Start a load, cancelling whichever was running. The returned task finishes when the
     /// load has been applied (or dropped as stale).
-    private func beginLoad(page: Int, append: Bool, refreshing: Bool) -> Task<Void, Never> {
+    private func beginLoad(
+        page: Int, append: Bool, refreshing: Bool, announcesResults: Bool = false
+    ) -> Task<Void, Never> {
         loadTask?.cancel()
         generation += 1
         hasStarted = true
@@ -197,6 +203,7 @@ public final class LibraryModel {
             isLoadingMore = true
             loadMoreError = nil
         } else {
+            resultsAnnouncement = nil
             appliedSearch = filters.nameSearch
             isLoadingMore = false
             loadMoreError = nil
@@ -212,13 +219,17 @@ public final class LibraryModel {
             } catch {
                 outcome = .failure(error)
             }
-            self?.finish(outcome, token: token, page: page, append: append)
+            self?.finish(
+                outcome, token: token, page: page, append: append, announcesResults: announcesResults)
         }
         loadTask = task
         return task
     }
 
-    private func finish(_ outcome: Result<RecipePage, any Error>, token: Int, page: Int, append: Bool) {
+    private func finish(
+        _ outcome: Result<RecipePage, any Error>, token: Int, page: Int, append: Bool,
+        announcesResults: Bool
+    ) {
         // A newer load started since this one did: whatever it found is out of date.
         guard token == generation else { return }
         switch outcome {
@@ -236,6 +247,9 @@ public final class LibraryModel {
                 recipes = result.results.filter { seen.insert($0.id).inserted }
             }
             state = recipes.isEmpty ? .empty : .loaded
+            if announcesResults && !append {
+                resultsAnnouncement = UserMessages.resultsAnnouncement(count: result.count)
+            }
         case .failure(let error):
             if append {
                 isLoadingMore = false

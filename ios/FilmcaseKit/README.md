@@ -97,3 +97,7 @@ Platform-neutral logic for the App Intents and ActivityKit adapters in the app t
 - `Intents/SendRecipeToSlotAction`: `perform(recipeID:slot:)` returns a `SendRecipeOutcome` (`result` + Siri `dialog`). Always backs the slot up first; `overwritePrompt(recipeName:slot:)` is the confirmation text.
 - `Intents/ReadSlotsAction`: `perform()` returns a `ReadSlotsOutcome` (`slots` + spoken `dialog`).
 - `LiveActivity/PushActivityContent`: the (Codable, under 4 KB) content state; `PushActivityReporter` is what the ActivityKit adapter implements. `PushSheetModel` and `CollectionPushModel` take an optional `activity:` reporter and call `start`, `update` per slot, `end`. `RecordingPushActivityReporter` serves tests.
+
+## VoiceOver wording (P9d)
+
+`ViewModels/AccessibilityText.swift`: `CollectionSummary.accessibilityLabel`, `FacetOption.accessibilityLabel` (`FacetOption` already carries `count`), `SlotPushResult.detailText` (also on `SlotStatus` and `Outcome`: "Not applied: Dynamic Range, High Light Tone"), `PropertyDiffRow.accessibilityLabel` / `Outcome.diffAccessibilityLabels`, `CollectionPushModel.completionAnnouncement` (nil unless finished, interrupted, restoring or restored), `OnboardingModel.accessibilityFingerprint`, and `LibraryModel.resultsAnnouncement` (set only when a search or filter change finishes loading).
