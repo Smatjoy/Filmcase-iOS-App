@@ -44,18 +44,23 @@ final class FilmcaseUITests: XCTestCase {
             app.staticTexts["Film Simulation"].firstMatch.waitForExistence(timeout: 20),
             "The spec sheet does not show Film Simulation")
 
-        try audit(app)
+        // Two passes so every row is checked for contrast at least once away from the bottom
+        // chrome: rows ignored in the fade band on the first pass are mid-screen on the second.
+        try audit(app, fadeBand: 64)
+        app.scrollViews.firstMatch.swipeUp()
+        try audit(app, fadeBand: 0)
     }
 
     /// Apple's audit with exactly two known false positives ignored, both recorded in
     /// docs/ios_accessibility_audit.md; every other issue fails the test.
-    /// - Contrast on elements that extend under the tab bar or its bottom accessory (both
-    ///   measured from their own frames): the
-    ///   audit measures them against the translucent bar instead of the page, so primary text
-    ///   in the lower spec-sheet rows was reported although it is full primary on the page.
+    /// - Contrast on elements under the tab bar or its bottom accessory (both measured from
+    ///   their own frames), or within *fadeBand* points above them, where iOS 26's soft
+    ///   scroll-edge effect fades scrolling content. The audit measures that faded text, so
+    ///   full-primary spec-sheet rows were reported. A caller that ignores a band audits
+    ///   again after scrolling, so those rows are still checked mid-screen.
     /// - Clipped text in the system search field: its placeholder is drawn by UIKit, not us.
     @MainActor
-    private func audit(_ app: XCUIApplication) throws {
+    private func audit(_ app: XCUIApplication, fadeBand: CGFloat = 0) throws {
         // The top of the bottom chrome, measured rather than guessed: the bottom accessory
         // is our own connection pill ("Camera connection"), and the tab bar sits below it.
         // With neither found, nothing is ignored.
@@ -63,7 +68,7 @@ final class FilmcaseUITests: XCTestCase {
             .filter(\.exists)
             .map(\.frame)
         // 12 pt for the accessory's glass capsule, which is a little taller than the button.
-        let chromeTop = (chromeFrames.map(\.minY).min() ?? .greatestFiniteMagnitude) - 12
+        let chromeTop = (chromeFrames.map(\.minY).min() ?? .greatestFiniteMagnitude) - 12 - fadeBand
 
         // API: XCUIApplication.performAccessibilityAudit(for:_:) (iOS 17); returning true
         // from the handler ignores that issue.
