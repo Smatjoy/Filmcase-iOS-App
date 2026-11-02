@@ -22,6 +22,10 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: "1"
+    # The one bundle id to override for device builds (see ios/README.md):
+    #   xcodebuild ... FILMCASE_BUNDLE_ID=dev.filmcase.app.ms
+    # The widget extension's id is derived from it, as the app's must be its prefix.
+    FILMCASE_BUNDLE_ID: dev.filmcase.app
 
 packages:
   FilmcaseKit:
@@ -43,12 +47,16 @@ targets:
         buildPhase: resources
       - path: App/Fonts
         buildPhase: resources
+      # Compiled into the widget extension too.
+      - path: Shared
     dependencies:
       - package: FilmcaseKit
         product: FilmcaseKit
+      - target: FilmcaseWidgets
+        embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.filmcase.app
+        PRODUCT_BUNDLE_IDENTIFIER: $(FILMCASE_BUNDLE_ID)
         PRODUCT_NAME: Filmcase
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -60,6 +68,7 @@ targets:
         CFBundleShortVersionString: "0.1"
         CFBundleVersion: "1"
         NSLocalNetworkUsageDescription: "Filmcase connects to your Filmcase server on your local network."
+        NSSupportsLiveActivities: true
         NSCameraUsageDescription: "Filmcase talks to your Fujifilm camera over USB-C to read and write custom slots."
         UILaunchScreen: {}
         UIAppFonts:
@@ -70,6 +79,30 @@ targets:
           - UIInterfaceOrientationPortrait
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+
+  FilmcaseWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: Shared
+    dependencies:
+      - package: FilmcaseKit
+        product: FilmcaseKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(FILMCASE_BUNDLE_ID).widgets
+        PRODUCT_NAME: FilmcaseWidgets
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+    info:
+      path: .generated/FilmcaseWidgets-Info.plist
+      properties:
+        CFBundleDisplayName: Filmcase Widgets
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
   FilmcaseTests:
     type: bundle.unit-test

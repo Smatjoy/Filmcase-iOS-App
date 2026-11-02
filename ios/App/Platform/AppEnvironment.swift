@@ -42,6 +42,8 @@ final class AppEnvironment {
     let runtimeProvider: CameraRuntimeProvider
     let connection: CameraConnection
     let backupStore: any BackupStore
+    /// Where the push models report for a Live Activity; nil in tests.
+    let pushActivity: (any PushActivityReporter)?
 
     let library: LibraryModel
     let collections: CollectionsModel
@@ -59,6 +61,7 @@ final class AppEnvironment {
         httpTransport: (any HTTPTransport)? = nil,
         configCache: any ClientConfigCache = InMemoryClientConfigCache(),
         backupStore: any BackupStore = InMemoryBackupStore(),
+        pushActivity: (any PushActivityReporter)? = nil,
         cameraConfig: ClientConfig = AppEnvironment.bundledCameraConfig()
     ) {
         let trust = TrustEvaluator(store: pinStore)
@@ -81,6 +84,7 @@ final class AppEnvironment {
         self.runtimeProvider = runtimeProvider
         self.connection = connection
         self.backupStore = backupStore
+        self.pushActivity = pushActivity
         self.library = LibraryModel(client: client)
         self.collections = CollectionsModel(client: client)
         self.cameraModel = CameraModel(connection: connection, runtime: runtimeProvider)
@@ -116,7 +120,8 @@ final class AppEnvironment {
             endpointSettings: EndpointSettings(defaults: .standard),
             cameraMode: .usb,
             configCache: FileClientConfigCache.standard(),
-            backupStore: SwiftDataBackupStore(modelContainer: backupContainer)
+            backupStore: SwiftDataBackupStore(modelContainer: backupContainer),
+            pushActivity: ActivityKitPushReporter()
         )
     }
 
@@ -132,7 +137,8 @@ final class AppEnvironment {
             pathEvents: IdlePathEvents(),
             endpointSettings: settings,
             cameraMode: .demo,
-            httpTransport: DemoHTTPTransport()
+            httpTransport: DemoHTTPTransport(),
+            pushActivity: ActivityKitPushReporter()
         )
     }
 

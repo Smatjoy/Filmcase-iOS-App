@@ -14,6 +14,8 @@ import Foundation
     /// only one model observes the connection.
     var cameraModel: CameraModel { get }
     var clock: any FilmcaseClock { get }
+    /// The Live Activity reporter handed to the push models.
+    var pushActivity: (any PushActivityReporter)? { get }
 }
 
 extension CameraFeatureEnvironment {

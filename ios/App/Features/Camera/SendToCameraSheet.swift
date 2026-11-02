@@ -48,7 +48,8 @@ struct SendToCameraSheet: View {
         do {
             model = PushSheetModel(
                 recipe: recipe, camera: environment.cameraModel,
-                workflow: try await environment.makeSlotWorkflow())
+                workflow: try await environment.makeSlotWorkflow(),
+                activity: environment.pushActivity)
         } catch {
             setupError = UserMessages.text(for: error)
         }

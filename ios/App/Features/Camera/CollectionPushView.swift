@@ -53,7 +53,7 @@ struct CollectionPushView: View {
             let workflow = try await environment.makeSlotWorkflow()
             model = try await CollectionPushModel.load(
                 collection: collection, client: environment.client, workflow: workflow,
-                clock: environment.clock)
+                clock: environment.clock, activity: environment.pushActivity)
         } catch {
             loadError = UserMessages.text(for: error)
         }

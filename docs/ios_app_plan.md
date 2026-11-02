@@ -237,6 +237,15 @@ Each is meant to take minutes, not an afternoon. Everything not listed here is d
 - [ ] Note if Wi-Fi turns on during the send (that points to BLE → PTP/IP handoff).
 - [ ] Share the `.pklg` file. The lead writes `docs/ble_protocol.md` from it.
 
+### P9 — Shortcuts and Live Activity (≈15 min)
+- [ ] Build with your bundle id (`ios/README.md`: one override, `FILMCASE_BUNDLE_ID`), install on the phone, camera in USB RAW CONV./BACKUP RESTORE mode.
+- [ ] Shortcuts app -> **Filmcase**: run **Read Camera Slots**. The app opens and the result lists C1-C7.
+- [ ] Run **Send Recipe to Camera Slot**: pick a recipe (suggestions are favourites first), slot 3. Expect the overwrite question, then "Sent ... and checked it". Check C3 on the camera.
+- [ ] Ask Siri: "Send a recipe to my camera with Filmcase" and "Read my camera slots in Filmcase".
+- [ ] Start a collection push, lock the phone: the Live Activity shows on the Lock Screen with a progress bar and C1-C7 marks; on a Dynamic Island phone check compact, minimal (start another activity) and expanded (long press).
+- [ ] Unplug mid-push: the activity shows the connection-lost state and lingers; a clean push disappears after about 10 seconds.
+- [ ] VoiceOver on the activity: it reads one sentence (title, progress, slot states), not each icon.
+
 ### P9 — TestFlight (≈20 min, once)
 - [ ] App Store Connect: create the app record (bundle id from `project.yml`).
 - [ ] Xcode → **Product → Archive** → **Distribute → TestFlight**. Or approve an Actions upload job, which needs an App Store Connect API key added as repo secrets.
