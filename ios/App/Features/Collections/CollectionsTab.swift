@@ -76,9 +76,7 @@ private struct CollectionRow: View {
             Text(collection.recipeCount, format: .number).secondaryText()
         }
         .accessibilityElement(children: .combine)
-        // Inflected so one recipe reads "1 recipe". A model-owned label is requested in the
-        // audit's open questions (CollectionSummary.accessibilityLabel).
-        .accessibilityLabel(Text("\(collection.name), ^[\(collection.recipeCount) recipe](inflect: true)"))
+        .accessibilityLabel(collection.accessibilityLabel)
     }
 }
 

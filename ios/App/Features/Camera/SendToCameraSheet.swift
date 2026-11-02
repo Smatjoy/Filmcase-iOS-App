@@ -185,7 +185,7 @@ private struct ResultView: View {
                     font: .title3.weight(.semibold))
                 ForEach(outcome.diff) { row in
                     Text(row.label)
-                        .accessibilityLabel("\(row.label) did not take")
+                        .accessibilityLabel(row.accessibilityLabel)
                 }
             }
         case .connectionLost:

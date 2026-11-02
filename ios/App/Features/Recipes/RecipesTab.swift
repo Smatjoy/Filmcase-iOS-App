@@ -42,6 +42,9 @@ private struct RecipeListView: View {
         }
         .sheet(isPresented: $showsFilters) { FacetFilterSheet(library: library) }
         .task { await library.loadIfNeeded() }
+        .onChange(of: library.resultsAnnouncement) { _, text in
+            if let text { announce(text) }
+        }
     }
 
     private var list: some View {

@@ -50,6 +50,7 @@ struct FacetFilterSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(option.accessibilityLabel)
         .disabled(!option.available)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

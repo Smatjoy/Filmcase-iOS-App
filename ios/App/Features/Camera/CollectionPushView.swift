@@ -81,8 +81,8 @@ private struct CollectionPushContent: View {
         .environment(\.editMode, .constant(model.phase == .editing ? .active : .inactive))
         .animation(reduceMotion ? nil : .default, value: model.assignment)
         // The run goes on while VoiceOver focus sits elsewhere; say it when it stops or fails.
-        .onChange(of: model.phase) { _, phase in
-            if case .interrupted(_, let message) = phase { announce(message ?? "The push stopped.") }
+        .onChange(of: model.phase) { _, _ in
+            if let text = model.completionAnnouncement { announce(text) }
         }
         .onChange(of: model.errorMessage) { _, message in announce(message ?? "") }
         .toolbar {
@@ -205,8 +205,14 @@ private struct SlotRowView: View {
             Text(row.displayName)
                 .foregroundStyle(row.item == nil ? .secondary : .primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if let text = status?.displayText {
-                Text(text).font(.caption).secondaryText()
+            VStack(alignment: .trailing, spacing: 2) {
+                if let text = status?.displayText {
+                    Text(text).font(.caption).secondaryText()
+                }
+                // Which settings did not take, visible (not only for VoiceOver).
+                if let detail = status?.detailText {
+                    Text(detail).font(.caption2).secondaryText()
+                }
             }
             // Status is never colour alone: each indicator has its own shape and the row
             // also carries the status as text.

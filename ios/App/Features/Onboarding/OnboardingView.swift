@@ -119,6 +119,8 @@ private struct TrustPrompt: View {
             Text(fingerprint)
                 .font(.system(.footnote, design: .monospaced))
                 .textSelection(.enabled)
+                // Read as pairs ("AB, CD, …") rather than one long string.
+                .accessibilityLabel(OnboardingModel.spoken(fingerprint: fingerprint))
             AdaptiveStack {
                 Button("Cancel", role: .cancel, action: cancel)
                     .buttonStyle(.bordered)
