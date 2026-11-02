@@ -151,6 +151,8 @@ Wave order: **P0 ∥ P1** → **P2 ∥ P4** → **P3 ∥ S1-code** → **P4b ∥
 
 ---
 
+**P7 manual check, 2026-11-02 (X-T50, iOS 27.2, homelab server):** a 7-recipe collection pushed to C1–C7 with six slots Verified. C2 (Provia 16, the only difference from the verified Provia 18 being DR400) reported 2 settings not applied, with the camera on Auto ISO (max 3200). On the X-T50, DR400 needs ISO 500 or higher and DR200 needs 250 or higher; with Auto ISO the camera judges by the Auto minimum. A later push verified C2. Still open: the setting names were not visible (fix in P9: show them on screen), the unplug-and-resume test, and Restore all.
+
 ## 6. Orchestration (Opus lead → Sonnet workers)
 
 - The lead decomposes each phase into briefs. Workers are spawned with **`model: "sonnet"`** pinned on every Agent call.
