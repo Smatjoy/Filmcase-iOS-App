@@ -257,7 +257,8 @@ struct CollectionPushModelTests {
 
         await model.restoreAll()
         #expect(model.phase == .restored([1: .verified]))
-        #expect(try await rig.store.all().count == 1)
+        // The run's backup of C1, plus the one the restore took of C1 before writing.
+        #expect(try await rig.store.all().count == 2)
     }
 
     @Test func restoreAllIsNotOfferedBeforeARun() async throws {

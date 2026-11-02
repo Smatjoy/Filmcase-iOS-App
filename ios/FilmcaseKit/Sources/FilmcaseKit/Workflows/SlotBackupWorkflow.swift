@@ -53,22 +53,7 @@ public struct SlotBackupWorkflow: Sendable {
         try getStrategy(cameraName: cameraName).validateRecipe(recipe, encodings: runtime.config.encodings)
 
         let runtime = self.runtime
-        let clock = self.clock
-        let backup: SlotBackup
-        do {
-            backup = try await runner.run("Back up C\(slot)") { device in
-                try await captureSlot(device, slot: slot, runtime: runtime, capturedAt: clock.now)
-            }
-        } catch {
-            if isConnectionFailure(error) { return .connectionLost }
-            throw error
-        }
-
-        do {
-            try await store.save(backup)
-        } catch {
-            throw SlotBackupError.backupNotSaved(String(describing: error))
-        }
+        guard try await backUp(slot: slot) else { return .connectionLost }
 
         do {
             try await runner.run("Push to C\(slot)") { device in
@@ -84,7 +69,12 @@ public struct SlotBackupWorkflow: Sendable {
     }
 
     /// Write a stored backup back into its slot and verify every property.
-    /// - Throws: `SlotBackupError.wrongCamera` if a different model is connected.
+    ///
+    /// Like a push, a restore reads what the slot holds now and stores it first, so a restore
+    /// never destroys the only copy of anything. Those backups pile up as history; the oldest
+    /// per slot stays the original.
+    /// - Throws: `SlotBackupError.wrongCamera` if a different model is connected;
+    ///   `backupNotSaved` (the slot is left alone) if the current contents could not be stored.
     public func restore(_ backup: SlotBackup) async throws -> SlotPushResult {
         guard let cameraName = await runner.cameraName else { return .connectionLost }
         guard cameraName == backup.cameraName else {
@@ -93,6 +83,7 @@ public struct SlotBackupWorkflow: Sendable {
         try checkSlot(backup.slotIndex, cameraName: cameraName)
 
         let runtime = self.runtime
+        guard try await backUp(slot: backup.slotIndex) else { return .connectionLost }
         do {
             let failed = try await runner.run("Restore C\(backup.slotIndex)") { device in
                 try await writeBackup(backup, to: device, runtime: runtime)
@@ -102,6 +93,28 @@ public struct SlotBackupWorkflow: Sendable {
             if isConnectionFailure(error) { return .connectionLost }
             throw error
         }
+    }
+
+    /// Read *slot* and store it. False when the camera went away before it could be read;
+    /// throws `backupNotSaved` when the store refused it.
+    private func backUp(slot: Int) async throws -> Bool {
+        let runtime = self.runtime
+        let clock = self.clock
+        let backup: SlotBackup
+        do {
+            backup = try await runner.run("Back up C\(slot)") { device in
+                try await captureSlot(device, slot: slot, runtime: runtime, capturedAt: clock.now)
+            }
+        } catch {
+            if isConnectionFailure(error) { return false }
+            throw error
+        }
+        do {
+            try await store.save(backup)
+        } catch {
+            throw SlotBackupError.backupNotSaved(String(describing: error))
+        }
+        return true
     }
 
     func checkSlot(_ slot: Int, cameraName: String) throws {

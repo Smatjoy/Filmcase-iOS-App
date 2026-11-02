@@ -89,6 +89,8 @@ public final class CollectionPushModel {
     public private(set) var completed = 0
     public private(set) var total = 0
     public private(set) var errorMessage: String?
+    /// The confirmation to show before `restoreOriginals()`; nil when none is pending.
+    public private(set) var restoreOriginalsPrompt: String?
 
     @ObservationIgnored private let recipes: [RecipeID: Recipe]
     @ObservationIgnored private let workflow: SlotBackupWorkflow
@@ -196,6 +198,18 @@ public final class CollectionPushModel {
         default: false
         }
     }
+
+    /// Whether the oldest backup of each slot can be put back: after any run that ended.
+    public var canRestoreOriginals: Bool {
+        switch phase {
+        case .finished, .interrupted, .restored: true
+        default: false
+        }
+    }
+
+    /// Label for `restoreAll()`, which puts back only what this run replaced.
+    public var undoPushLabel: String { UserMessages.undoPushLabel }
+    public var restoreOriginalsLabel: String { UserMessages.restoreOriginalsLabel }
 
     // --- editing ---
 
@@ -335,6 +349,64 @@ public final class CollectionPushModel {
             errorMessage = UserMessages.text(for: error)
             phase = results.isEmpty ? previous : .restored(results)
         }
+    }
+
+    /// Work out what restoring the originals would bring back and set
+    /// `restoreOriginalsPrompt` for the view to confirm; `errorMessage` says why not otherwise.
+    public func requestRestoreOriginals() async {
+        guard canRestoreOriginals else { return }
+        errorMessage = nil
+        restoreOriginalsPrompt = nil
+        do {
+            guard let originals = try await connectedOriginals() else {
+                errorMessage = UserMessages.text(for: CollectionPushError.notConnected)
+                return
+            }
+            if originals.isEmpty {
+                errorMessage = UserMessages.noOriginalsText
+            } else {
+                restoreOriginalsPrompt = UserMessages.restoreOriginalsPrompt(originals: originals)
+            }
+        } catch {
+            errorMessage = UserMessages.text(for: error)
+        }
+    }
+
+    public func cancelRestoreOriginals() { restoreOriginalsPrompt = nil }
+
+    /// Put the oldest backup of every slot of the connected camera model back, whichever run
+    /// stored it. Each slot is backed up first.
+    public func restoreOriginals() async {
+        guard canRestoreOriginals else { return }
+        restoreOriginalsPrompt = nil
+        let previous = phase
+        phase = .restoring
+        errorMessage = nil
+        var results: [SlotIndex: SlotPushResult] = [:]
+        do {
+            guard let originals = try await connectedOriginals() else {
+                errorMessage = UserMessages.text(for: CollectionPushError.notConnected)
+                phase = previous
+                return
+            }
+            if originals.isEmpty {
+                errorMessage = UserMessages.noOriginalsText
+                phase = previous
+                return
+            }
+            try await workflow.restoreOriginals(originals, results: &results)
+            phase = .restored(results)
+        } catch is CancellationError {
+            phase = results.isEmpty ? previous : .restored(results)
+        } catch {
+            errorMessage = UserMessages.text(for: error)
+            phase = results.isEmpty ? previous : .restored(results)
+        }
+    }
+
+    private func connectedOriginals() async throws -> [SlotBackup]? {
+        guard let camera = await workflow.connectedCameraName else { return nil }
+        return SlotBackupHistory.originals(in: try await workflow.store.all(), camera: camera)
     }
 
     // --- internals ---

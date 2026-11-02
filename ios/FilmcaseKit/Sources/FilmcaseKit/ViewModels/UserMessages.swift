@@ -148,6 +148,45 @@ public enum UserMessages {
         }
     }
 
+    // --- backup history and originals ---
+
+    /// The badge on a slot's oldest backup.
+    public static let beforeFilmcaseBadge = "Before Filmcase"
+
+    /// The label for undoing the collection push that just ran.
+    public static let undoPushLabel = "Undo this push"
+
+    /// The label for putting every slot back as it was before Filmcase.
+    public static let restoreOriginalsLabel = "Restore originals"
+
+    public static let noOriginalsText = "There are no original backups to restore."
+
+    /// What to ask before restoring *originals*: which slots and which names come back.
+    public static func restoreOriginalsPrompt(originals: [SlotBackup]) -> String {
+        guard !originals.isEmpty else { return noOriginalsText }
+        let list = originals.map { "C\($0.slotIndex) \($0.slotName)" }.joined(separator: ", ")
+        return "Put \(slotCountText(originals.count)) back as they were before Filmcase: \(list). "
+            + "What is in them now is backed up first."
+    }
+
+    /// What happened when the originals were restored: one sentence, plus one per problem.
+    public static func restoreOriginalsText(results: [Int: SlotPushResult]) -> String {
+        if results.isEmpty { return noOriginalsText }
+        let verified = results.values.filter { $0 == .verified }.count
+        var parts = ["Restored the originals of \(slotCountText(verified))."]
+        for slot in results.keys.sorted() {
+            guard let result = results[slot] else { continue }
+            switch result {
+            case .verified: break
+            case .partiallyFailed(let names):
+                parts.append("C\(slot): the camera did not take \(names.joined(separator: ", ")).")
+            case .connectionLost:
+                parts.append("C\(slot): not restored, the camera connection was lost.")
+            }
+        }
+        return parts.joined(separator: " ")
+    }
+
     /// What happened when slot *slot* was restored.
     public static func restoreText(slot: Int, result: SlotPushResult) -> String {
         switch result {

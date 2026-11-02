@@ -85,6 +85,20 @@ private struct CollectionPushContent: View {
             if let text = model.completionAnnouncement { announce(text) }
         }
         .onChange(of: model.errorMessage) { _, message in announce(message ?? "") }
+        .confirmationDialog(
+            model.restoreOriginalsLabel,
+            isPresented: Binding(
+                get: { model.restoreOriginalsPrompt != nil },
+                set: { if !$0 { model.cancelRestoreOriginals() } }),
+            titleVisibility: .visible
+        ) {
+            Button(model.restoreOriginalsLabel, role: .destructive) {
+                Task { await model.restoreOriginals() }
+            }
+            Button("Cancel", role: .cancel) { model.cancelRestoreOriginals() }
+        } message: {
+            Text(model.restoreOriginalsPrompt ?? "")
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("Auto-fill") { model.autoFill() }
@@ -186,7 +200,12 @@ private struct CollectionPushContent: View {
                 Button("Arrange again") { model.editAgain() }
             }
             if model.canRestoreAll {
-                Button("Restore all", role: .destructive) { Task { await model.restoreAll() } }
+                Button(model.undoPushLabel, role: .destructive) { Task { await model.restoreAll() } }
+            }
+            if model.canRestoreOriginals {
+                Button(model.restoreOriginalsLabel, role: .destructive) {
+                    Task { await model.requestRestoreOriginals() }
+                }
             }
         }
     }

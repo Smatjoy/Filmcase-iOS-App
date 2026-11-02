@@ -101,3 +101,11 @@ Platform-neutral logic for the App Intents and ActivityKit adapters in the app t
 ## VoiceOver wording (P9d)
 
 `ViewModels/AccessibilityText.swift`: `CollectionSummary.accessibilityLabel`, `FacetOption.accessibilityLabel` (`FacetOption` already carries `count`), `SlotPushResult.detailText` (also on `SlotStatus` and `Outcome`: "Not applied: Dynamic Range, High Light Tone"), `PropertyDiffRow.accessibilityLabel` / `Outcome.diffAccessibilityLabels`, `CollectionPushModel.completionAnnouncement` (nil unless finished, interrupted, restoring or restored), `OnboardingModel.accessibilityFingerprint`, and `LibraryModel.resultsAnnouncement` (set only when a search or filter change finishes loading).
+
+## Backup history and originals (P7b)
+
+- `Workflows/BackupHistory`: `SlotBackupHistory.group(_:)` turns `BackupStore.all()` into per-camera, per-slot histories (C1 upwards, each newest first). The oldest entry is `isBeforeFilmcase`, because Filmcase always backs a slot up before its first write; no stored flag, no migration. `originals(in:camera:)` is the oldest backup of each slot of one camera model.
+- `SlotBackupWorkflow.restore` now backs up the slot's current contents first (like a push), so a restore never destroys the only copy. A backup that cannot be stored throws `backupNotSaved` and the slot is left alone.
+- `BackupsModel`: `backups` (latest per slot, unchanged), `histories`, `requestRestoreOriginals()` (sets `restoreOriginalsPrompt`, or `message` when there is no camera or nothing to restore), `restoreOriginals()`, `cancelRestoreOriginals()`, `canRestoreOriginals`, `beforeFilmcaseBadge`.
+- `CollectionPushModel`: `restoreAll()` is labelled `undoPushLabel` ("Undo this push", the run's own backups); `canRestoreOriginals`, `requestRestoreOriginals()` / `restoreOriginals()` and `restoreOriginalsLabel` reach back to the oldest backups.
+- Wording lives in `UserMessages` (`beforeFilmcaseBadge`, `undoPushLabel`, `restoreOriginalsLabel`, `restoreOriginalsPrompt`, `restoreOriginalsText`). Deferred: skipping redundant backups and pruning.
