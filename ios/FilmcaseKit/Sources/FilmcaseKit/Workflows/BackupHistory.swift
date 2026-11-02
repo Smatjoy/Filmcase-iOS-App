@@ -29,6 +29,20 @@ public struct SlotBackupHistory: Equatable, Identifiable, Sendable {
     /// Everything but the newest, shown when the slot is expanded.
     public var earlier: [BackupHistoryEntry] { Array(entries.dropFirst()) }
 
+    /// The history for display: consecutive backups with the same contents (a collection
+    /// pushed again and again backs up the same recipe each time) merged into one run.
+    public var runs: [BackupHistoryRun] {
+        var runs: [[BackupHistoryEntry]] = []
+        for entry in entries {
+            if let last = runs.last?.last, last.backup.hasSameContents(as: entry.backup) {
+                runs[runs.count - 1].append(entry)
+            } else {
+                runs.append([entry])
+            }
+        }
+        return runs.map(BackupHistoryRun.init(entries:))
+    }
+
     /// Group *newestFirst* (the order `BackupStore.all()` returns) per camera and slot.
     /// Cameras keep the order of their newest backup; slots run C1 upwards.
     public static func group(_ newestFirst: [SlotBackup]) -> [SlotBackupHistory] {
@@ -59,6 +73,28 @@ public struct SlotBackupHistory: Equatable, Identifiable, Sendable {
     /// The original of every slot of *camera*, in slot order.
     public static func originals(in newestFirst: [SlotBackup], camera: String) -> [SlotBackup] {
         group(newestFirst).filter { $0.cameraName == camera }.map(\.original.backup)
+    }
+}
+
+/// Consecutive backups of a slot with the same contents, newest first. Restoring a run
+/// restores its newest backup; they are all the same.
+public struct BackupHistoryRun: Equatable, Identifiable, Sendable {
+    public let entries: [BackupHistoryEntry]
+
+    public var id: SlotBackup.ID { entries[0].id }
+    public var backup: SlotBackup { entries[0].backup }
+    public var count: Int { entries.count }
+    public var newest: Date { entries[0].capturedAt }
+    public var oldest: Date { entries[entries.count - 1].capturedAt }
+    /// True when the run reaches back to the slot's oldest backup.
+    public var isBeforeFilmcase: Bool { entries.contains(where: \.isBeforeFilmcase) }
+}
+
+extension SlotBackup {
+    /// Same name and same values for every property.
+    func hasSameContents(as other: SlotBackup) -> Bool {
+        slotName == other.slotName && properties.map(\.value) == other.properties.map(\.value)
+            && properties.map(\.code) == other.properties.map(\.code)
     }
 }
 

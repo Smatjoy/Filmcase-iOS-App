@@ -298,3 +298,54 @@ struct RestoreBacksUpFirstTests {
         #expect(!model.canRestoreAll)
     }
 }
+
+@Suite("Backup history runs")
+struct BackupHistoryRunTests {
+    private func backup(_ name: String, at seconds: TimeInterval, sim: Int = 1) -> SlotBackup {
+        SlotBackup(
+            cameraName: "X-T50", slotIndex: 1, capturedAt: Date(timeIntervalSince1970: seconds),
+            slotName: name, properties: [BackupProperty(name: "FilmSimulation", code: 0xD192, value: sim)])
+    }
+
+    @Test func repeatedIdenticalBackupsMergeIntoOneRun() throws {
+        // As on the owner's camera: one original, then the same recipe backed up four times.
+        let newestFirst = [
+            backup("Velvia 1", at: 5), backup("Velvia 1", at: 4), backup("Velvia 1", at: 3),
+            backup("Velvia 1", at: 2), backup("California Hues", at: 1, sim: 19),
+        ]
+        let history = try #require(SlotBackupHistory.group(newestFirst).first)
+        let runs = history.runs
+        #expect(runs.map(\.backup.slotName) == ["Velvia 1", "California Hues"])
+        #expect(runs.map(\.count) == [4, 1])
+        #expect(runs[0].newest == Date(timeIntervalSince1970: 5))
+        #expect(runs[0].oldest == Date(timeIntervalSince1970: 2))
+        #expect(runs.map(\.isBeforeFilmcase) == [false, true])
+        #expect(UserMessages.runCountText(runs[0]) == "Backed up 4 times")
+        #expect(UserMessages.runCountText(runs[1]) == nil)
+    }
+
+    @Test func sameNameWithDifferentSettingsStaysSeparate() throws {
+        let history = try #require(SlotBackupHistory.group([backup("A", at: 2, sim: 2), backup("A", at: 1, sim: 1)]).first)
+        #expect(history.runs.count == 2)
+    }
+
+    @Test func onlyIdenticalNeighboursMerge() throws {
+        let history = try #require(SlotBackupHistory.group([
+            backup("A", at: 3), backup("B", at: 2), backup("A", at: 1),
+        ]).first)
+        #expect(history.runs.map(\.backup.slotName) == ["A", "B", "A"])
+    }
+
+    @Test func theSlotSummaryNamesTheOriginal() throws {
+        let history = try #require(SlotBackupHistory.group([backup("Velvia 1", at: 2), backup("California Hues", at: 1)]).first)
+        #expect(UserMessages.originalSummary(history) == "Before Filmcase: California Hues")
+        #expect(UserMessages.backupCountText(2) == "2 backups")
+        #expect(UserMessages.backupCountText(1) == "1 backup")
+    }
+
+    @Test func restoringOneBackupAsksFirst() {
+        let b = backup("California Hues", at: 1)
+        #expect(UserMessages.restorePromptTitle(b) == "Restore \u{201C}California Hues\u{201D} to C1?")
+        #expect(UserMessages.restorePromptMessage(b) == "What C1 holds now is backed up first, so this can be undone.")
+    }
+}

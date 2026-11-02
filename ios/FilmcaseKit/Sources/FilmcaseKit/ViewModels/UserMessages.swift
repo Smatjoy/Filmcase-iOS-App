@@ -166,6 +166,30 @@ public enum UserMessages {
 
     public static let noOriginalsText = "There are no original backups to restore."
 
+    /// The line under a slot in the backups list: "Before Filmcase: California Hues".
+    public static func originalSummary(_ history: SlotBackupHistory) -> String {
+        "\(beforeFilmcaseBadge): \(history.original.backup.slotName)"
+    }
+
+    /// "1 backup", "5 backups".
+    public static func backupCountText(_ count: Int) -> String {
+        "\(count) \(count == 1 ? "backup" : "backups")"
+    }
+
+    /// For a merged run of identical backups: nil for one, "Backed up 4 times" otherwise.
+    public static func runCountText(_ run: BackupHistoryRun) -> String? {
+        run.count > 1 ? "Backed up \(run.count) times" : nil
+    }
+
+    /// The question before restoring one backup.
+    public static func restorePromptTitle(_ backup: SlotBackup) -> String {
+        "Restore \u{201C}\(backup.slotName)\u{201D} to C\(backup.slotIndex)?"
+    }
+
+    public static func restorePromptMessage(_ backup: SlotBackup) -> String {
+        "What C\(backup.slotIndex) holds now is backed up first, so this can be undone."
+    }
+
     /// What to ask before restoring *originals*: which slots and which names come back.
     public static func restoreOriginalsPrompt(originals: [SlotBackup]) -> String {
         guard !originals.isEmpty else { return noOriginalsText }

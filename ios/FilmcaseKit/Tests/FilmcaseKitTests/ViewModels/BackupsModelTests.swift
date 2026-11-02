@@ -62,6 +62,35 @@ struct BackupsModelTests {
         #expect(try await rig.device.getString(TestSupport.propSlotName) == WorkflowRig.originalName)
     }
 
+    @Test func aRestoreWaitsForConfirmation() async throws {
+        let rig = try await WorkflowRig()
+        _ = try await rig.workflow.push(try TestSupport.makeRecipe(), to: 3)
+        let model = BackupsModel(store: rig.store, workflow: rig.workflow)
+        await model.load()
+        let backup = try #require(model.backups.first)
+
+        model.requestRestore(backup)
+        #expect(model.pendingRestore == backup)
+        model.cancelRestore()
+        #expect(model.pendingRestore == nil)
+        #expect(model.message == nil)
+
+        model.requestRestore(backup)
+        await model.confirmRestore()
+        #expect(model.pendingRestore == nil)
+        #expect(model.message == "C3 restored.")
+    }
+
+    @Test func theFilmSimulationIsNamed() async throws {
+        let rig = try await WorkflowRig()
+        let provia = try #require(TestSupport.encodings.filmSimulationToPtp["Provia"])
+        let model = BackupsModel(store: rig.store, workflow: rig.workflow)
+        let backup = SlotBackup(
+            cameraName: "X-T50", slotIndex: 1, capturedAt: Date(), slotName: "A",
+            properties: [BackupProperty(name: "FilmSimulation", code: TestSupport.code("FilmSimulation"), value: provia)])
+        #expect(model.filmSimulationName(backup) == "Provia")
+    }
+
     @Test func aRefusedPropertyIsNamedAndIsNotACountedSuccess() async throws {
         let sharpness = TestSupport.code("Sharpness")
         let rig = try await WorkflowRig(setRejectionCodes: [sharpness: 0x2005])

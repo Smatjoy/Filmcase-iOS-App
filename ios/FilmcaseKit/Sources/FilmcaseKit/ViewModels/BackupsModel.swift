@@ -13,6 +13,8 @@ public final class BackupsModel {
     /// Every backup grouped per camera and slot (C1 upwards), each group newest first, the
     /// oldest entry flagged `isBeforeFilmcase`.
     public private(set) var histories: [SlotBackupHistory] = []
+    /// The single backup waiting for confirmation before `confirmRestore()`.
+    public private(set) var pendingRestore: SlotBackup?
     /// The confirmation to show before `restoreOriginals()`; nil when none is pending.
     public private(set) var restoreOriginalsPrompt: String?
     /// The result of the last load or restore, as a sentence; nil when there is nothing to say.
@@ -46,6 +48,26 @@ public final class BackupsModel {
         } catch {
             message = UserMessages.text(for: error)
         }
+    }
+
+    /// The film simulation a backup holds, by name ("Provia"); nil when unknown.
+    public func filmSimulationName(_ backup: SlotBackup) -> String? {
+        guard let ptp = backup.filmSimPtp else { return nil }
+        return workflow.runtime.config.encodings.filmSimulationToPtp.first { $0.value == ptp }?.key
+    }
+
+    /// Ask before restoring *backup*: the view shows `pendingRestore` as a confirmation.
+    public func requestRestore(_ backup: SlotBackup) {
+        message = nil
+        pendingRestore = backup
+    }
+
+    public func cancelRestore() { pendingRestore = nil }
+
+    public func confirmRestore() async {
+        guard let backup = pendingRestore else { return }
+        pendingRestore = nil
+        await restore(backup)
     }
 
     public func restore(_ backup: SlotBackup) async {
