@@ -76,8 +76,10 @@ struct RecipeDetailView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(!model.canSendToCamera)
+            // A dimmed button says nothing about why; the model's reason becomes its hint.
+            .accessibilityHint(model.sendBlockedReason ?? "")
             if let reason = model.sendBlockedReason {
-                Text(reason).font(.footnote).foregroundStyle(.secondary)
+                Text(reason).font(.footnote).secondaryText()
             }
         }
     }
@@ -89,7 +91,7 @@ private struct FilmSimSwatch: View {
 
     var body: some View {
         Label {
-            Text(name.uppercased()).font(AppFont.label(13, relativeTo: .footnote, weight: .semibold))
+            Text(name.uppercased()).appLabelFont(13, relativeTo: .footnote, weight: .semibold)
         } icon: {
             Image(systemName: "camera.filters")
         }
@@ -110,8 +112,8 @@ private struct SpecSheetView: View {
             ForEach(sections) { section in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(section.title.uppercased())
-                        .font(AppFont.label(12, relativeTo: .caption, weight: .bold))
-                        .foregroundStyle(.secondary)
+                        .appLabelFont(12, relativeTo: .caption, weight: .bold)
+                        .secondaryText()
                         .accessibilityAddTraits(.isHeader)
                     ForEach(section.rows) { row in
                         SpecRowView(row: row)
@@ -135,11 +137,13 @@ private struct SpecRowView: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
         layout {
-            Text(row.label).font(AppFont.label(15, relativeTo: .subheadline))
+            Text(row.label).appLabelFont(15, relativeTo: .subheadline)
             if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 12) }
             Text(row.value)
-                .font(AppFont.mono(15, relativeTo: .subheadline))
+                .appMonoFont(15, relativeTo: .subheadline)
                 .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
         }
+        // One swipe stop per row: "Highlight, +2" rather than two.
+        .accessibilityElement(children: .combine)
     }
 }

@@ -55,17 +55,24 @@ private struct RecipeListView: View {
             footer
         }
         .listStyle(.plain)
-        .overlay { if library.state == .loading { ProgressView() } }
+        .overlay {
+            if library.state == .loading {
+                ProgressView().accessibilityLabel("Loading recipes")
+            }
+        }
         .refreshable { await library.refresh() }
     }
 
     @ViewBuilder
     private var footer: some View {
         if library.isLoadingMore {
-            ProgressView().frame(maxWidth: .infinity).listRowSeparator(.hidden)
+            ProgressView()
+                .accessibilityLabel("Loading more recipes")
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
         } else if let message = library.loadMoreError {
             VStack(spacing: 8) {
-                Text(message).font(.footnote).foregroundStyle(.secondary)
+                Text(message).font(.footnote).secondaryText()
                 Button("Try Again") { library.retryLoadMore() }
             }
             .frame(maxWidth: .infinity)
@@ -93,6 +100,8 @@ private struct RecipeListView: View {
         } label: {
             Label("Favourites", systemImage: library.favoritesOnly ? "heart.fill" : "heart")
         }
+        // API: AccessibilityTraits.isToggle (iOS 17): announced as a toggle button.
+        .accessibilityAddTraits(.isToggle)
         .accessibilityValue(library.favoritesOnly ? "On" : "Off")
         .accessibilityHint("Shows only favourite recipes")
     }
@@ -114,21 +123,24 @@ private struct RecipeRow: View {
     let recipe: RecipeSummary
     let thumbnails: ThumbnailLoader
 
-    // Scales the thumbnail with Dynamic Type (ios-accessibility: non-text dimensions).
+    // Scales the thumbnail with Dynamic Type (ios-accessibility: non-text dimensions), but
+    // capped so it cannot crowd out the text at the largest sizes.
     @ScaledMetric(relativeTo: .body) private var thumbnailSize = 56.0
 
     var body: some View {
-        HStack(spacing: 12) {
+        // Column at accessibility sizes, so the name and film simulation get the full width.
+        AdaptiveStack(spacing: 12) {
             ThumbnailView(path: recipe.coverThumbnailURL, loader: thumbnails)
-                .frame(width: thumbnailSize, height: thumbnailSize)
+                .frame(width: min(thumbnailSize, 96), height: min(thumbnailSize, 96))
                 .clipShape(.rect(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 2) {
                 Text(recipe.displayName).font(.headline)
-                Text(recipe.filmSimulation).font(.subheadline).foregroundStyle(.secondary)
+                Text(recipe.filmSimulation).font(.subheadline).secondaryText()
             }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
             if recipe.isFavorite {
-                Image(systemName: "heart.fill").foregroundStyle(.pink)
+                // Shape, not just colour; the spoken label already says "favourite".
+                Image(systemName: "heart.fill").foregroundStyle(.pink).accessibilityHidden(true)
             }
         }
         .accessibilityElement(children: .combine)

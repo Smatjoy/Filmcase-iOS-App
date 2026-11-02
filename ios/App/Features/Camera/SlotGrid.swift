@@ -31,18 +31,23 @@ struct SlotGrid: View {
 struct SlotCell: View {
     let slot: SlotItem
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
+        // Long names truncate at normal sizes to keep the grid even; at accessibility sizes
+        // the cell grows instead (the VoiceOver label always carries the full text).
+        let unlimited = dynamicTypeSize.isAccessibilitySize
         VStack(alignment: .leading, spacing: 4) {
             Text(slot.title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .secondaryText()
             Text(slot.displayName)
                 .font(.headline)
-                .lineLimit(2)
+                .lineLimit(unlimited ? nil : 2)
             Text(slot.filmSimName)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .secondaryText()
+                .lineLimit(unlimited ? nil : 1)
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .padding(12)

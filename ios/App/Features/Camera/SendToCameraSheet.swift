@@ -62,6 +62,7 @@ private struct PushSheetContent: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(model.recipe.name).font(.title3.weight(.semibold))
+                    .accessibilityAddTraits(.isHeader)
                 phaseContent
             }
             .padding(.horizontal, 16)
@@ -121,7 +122,7 @@ private struct PushSheetContent: View {
             case .loaded:
                 Text("Choose a slot. Its current recipe is backed up first.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .secondaryText()
                 SlotGrid(slots: model.slots) { model.choose(slot: $0) }
             }
         }
@@ -138,6 +139,8 @@ private struct WorkingView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
         .accessibilityElement(children: .combine)
+        // The slot grid just vanished under VoiceOver focus; say what is happening.
+        .task(id: text) { announce(text) }
     }
 }
 
@@ -155,11 +158,15 @@ private struct ResultView: View {
             if model.canRestore {
                 Button("Restore previous recipe") { Task { await model.restore() } }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
             }
             Button("Choose another slot") { model.chooseAnother() }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
         }
         .animation(reduceMotion ? nil : .default, value: outcome)
+        // Verified / failed arrives asynchronously, after the grid VoiceOver was on is gone.
+        .task(id: outcome) { announce(outcome.message) }
     }
 
     /// The headline text comes from the model; the view only picks icon and colour.
@@ -167,27 +174,27 @@ private struct ResultView: View {
     private var resultBody: some View {
         switch outcome.result {
         case .verified:
-            Label(outcome.message, systemImage: "checkmark.circle.fill")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.green)
+            StatusLabel(
+                text: outcome.message, systemImage: "checkmark.circle.fill", tint: .green,
+                font: .title3.weight(.semibold))
         case .partiallyFailed:
             VStack(alignment: .leading, spacing: 8) {
-                Label(outcome.message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.orange)
+                StatusLabel(
+                    text: outcome.message, systemImage: "exclamationmark.triangle.fill", tint: .orange,
+                    font: .title3.weight(.semibold))
                 ForEach(outcome.diff) { row in
                     Text(row.label)
                         .accessibilityLabel("\(row.label) did not take")
                 }
             }
         case .connectionLost:
-            Label(outcome.message, systemImage: "cable.connector.slash")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.red)
+            StatusLabel(
+                text: outcome.message, systemImage: "cable.connector.slash", tint: .red,
+                font: .title3.weight(.semibold))
         case .failed:
-            Label(outcome.message, systemImage: "xmark.octagon.fill")
-                .font(.headline)
-                .foregroundStyle(.red)
+            StatusLabel(
+                text: outcome.message, systemImage: "xmark.octagon.fill", tint: .red,
+                font: .headline)
         }
     }
 }

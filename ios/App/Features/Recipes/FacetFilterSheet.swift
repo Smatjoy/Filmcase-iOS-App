@@ -41,9 +41,10 @@ struct FacetFilterSheet: View {
             HStack {
                 Text(option.label ?? option.value)
                 Spacer()
-                Text(option.count, format: .number).foregroundStyle(.secondary)
+                Text(option.count, format: .number).secondaryText()
                 if isSelected {
-                    Image(systemName: "checkmark").foregroundStyle(.tint)
+                    // The selected trait below carries the state for VoiceOver.
+                    Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true)
                 }
             }
             .contentShape(Rectangle())

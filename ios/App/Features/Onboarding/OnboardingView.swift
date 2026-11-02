@@ -35,7 +35,9 @@ struct OnboardingView: View {
                         .disabled(model.isConnecting)
                 }
                 if case .failed(let message) = model.state {
-                    Section { Text(message).foregroundStyle(.red) }
+                    Section {
+                        StatusLabel(text: message, systemImage: "exclamationmark.triangle.fill", tint: .red)
+                    }
                 }
             }
             .navigationTitle("Connect to Filmcase")
@@ -45,7 +47,11 @@ struct OnboardingView: View {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel) }
                 }
             }
-            .overlay { if model.isConnecting { ProgressView() } }
+            .overlay {
+                if model.isConnecting {
+                    ProgressView().accessibilityLabel("Connecting")
+                }
+            }
         }
         .sheet(isPresented: trustPromptBinding) {
             if case .needsTrust(let host, let fingerprint) = model.state {
@@ -59,7 +65,11 @@ struct OnboardingView: View {
         }
         .onChange(of: model.state) { _, state in
             if state == .connected { onFinished() }
+            // A failed connect appears below the fold of the form; say it aloud.
+            if case .failed(let message) = state { announce(message) }
         }
+        .onChange(of: model.lanURLError) { _, message in announce(message ?? "") }
+        .onChange(of: model.tailscaleURLError) { _, message in announce(message ?? "") }
     }
 
     private func urlField(_ prompt: String, text: Binding<String>, error: String?) -> some View {
@@ -76,7 +86,7 @@ struct OnboardingView: View {
     @ViewBuilder
     private func fieldError(_ message: String?) -> some View {
         if let message {
-            Text(message).font(.footnote).foregroundStyle(.red)
+            StatusLabel(text: message, systemImage: "exclamationmark.circle.fill", tint: .red, font: .footnote)
         }
     }
 
@@ -95,18 +105,27 @@ private struct TrustPrompt: View {
     let cancel: () -> Void
 
     var body: some View {
+        // Scrolls so the whole prompt stays reachable at the largest text sizes.
+        ScrollView {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Trust this certificate?").font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
             Text("\(host) has not been trusted before. Compare this SHA-256 fingerprint with the one your server shows.")
             Text(fingerprint)
                 .font(.system(.footnote, design: .monospaced))
                 .textSelection(.enabled)
-            HStack {
+            AdaptiveStack {
                 Button("Cancel", role: .cancel, action: cancel)
                     .buttonStyle(.bordered)
                 Button("Trust this certificate", action: trust)
                     .buttonStyle(.borderedProminent)
             }
+            .controlSize(.large)
         }
         .padding()
     }

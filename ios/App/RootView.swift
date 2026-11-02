@@ -33,6 +33,11 @@ struct RootView: View {
         .tabViewBottomAccessory {
             ConnectionPillButton(model: environment.cameraModel) { selection = .camera }
         }
+        // A camera connecting or dropping happens off-screen from the user's point of view
+        // (cable plugged in), so say it aloud wherever VoiceOver focus is.
+        .onChange(of: environment.cameraModel.pill) { _, pill in
+            announce(pill.text)
+        }
         .task { await environment.observePathChanges() }
         .task { await environment.observeCamera() }
         .task {

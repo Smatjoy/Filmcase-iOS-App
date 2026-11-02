@@ -20,7 +20,7 @@ struct CameraTab: View {
                 // and connects by itself when a camera is plugged in.
                 CameraContent(model: environment.cameraModel, backups: backups)
                 if let setupError {
-                    Text(setupError).font(.footnote).foregroundStyle(.secondary)
+                    Text(setupError).font(.footnote).secondaryText()
                 }
             }
             .padding(.horizontal, 16)
@@ -112,6 +112,7 @@ private struct ConnectPrompt: View {
             if showsButton {
                 Button("Connect") { Task { await model.connect() } }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
             }
         }
         .frame(maxWidth: .infinity)
@@ -126,29 +127,36 @@ private struct BackupsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Backups").font(.headline)
+                .accessibilityAddTraits(.isHeader)
             Text("The latest backup of each slot, taken before it was overwritten.")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .secondaryText()
             ForEach(backups.backups) { backup in
-                HStack {
+                // Column at accessibility sizes so the Restore button gets its own full line.
+                AdaptiveStack(spacing: 8) {
                     VStack(alignment: .leading) {
                         Text("C\(backup.slotIndex), \(backup.slotName)").font(.body)
                         Text(backup.capturedAt, format: .dateTime.day().month().hour().minute())
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .secondaryText()
                     }
-                    Spacer()
+                    // One stop for the text; the Restore button stays its own stop.
+                    .accessibilityElement(children: .combine)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     Button("Restore") { Task { await backups.restore(backup) } }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
                         .disabled(backups.isRestoring)
                         .accessibilityLabel("Restore C\(backup.slotIndex), \(backup.slotName)")
                 }
                 .accessibilityElement(children: .contain)
             }
             if let message = backups.message {
-                Text(message).font(.footnote).accessibilityAddTraits(.updatesFrequently)
+                Text(message).font(.footnote)
             }
         }
         .sensoryFeedback(.success, trigger: backups.successCount)
+        // A restore result arrives long after the tap; speak it instead of relying on focus.
+        .onChange(of: backups.message) { _, message in announce(message ?? "") }
     }
 }

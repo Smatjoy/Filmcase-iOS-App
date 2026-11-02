@@ -12,8 +12,10 @@ struct ConnectionPillButton: View {
         let pill = model.pill
         Button(action: open) {
             HStack(spacing: 8) {
-                Image(systemName: "cable.connector")
+                // Different shape per state, so the green is not the only signal.
+                Image(systemName: pill.isReady ? "cable.connector" : "cable.connector.slash")
                     .foregroundStyle(pill.isReady ? Color.green : Color.secondary)
+                    .accessibilityHidden(true)
                 Text(pill.text)
                     .font(.footnote)
                     .lineLimit(1)

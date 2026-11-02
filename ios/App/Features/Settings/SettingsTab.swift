@@ -54,17 +54,22 @@ struct SettingsTab: View {
                 HStack {
                     VStack(alignment: .leading) {
                         Text(url.host() ?? url.absoluteString).font(.body)
-                        Text(url.absoluteString).font(.footnote).foregroundStyle(.secondary)
+                        Text(url.absoluteString).font(.footnote).secondaryText()
                     }
-                    Spacer()
-                    Button("Forget certificate", systemImage: "lock.slash") {
+                    // The host and URL are one stop; the forget button stays its own stop.
+                    .accessibilityElement(children: .combine)
+                    Spacer(minLength: 8)
+                    Button {
                         hostToForget = url.host()
+                    } label: {
+                        Label("Forget certificate", systemImage: "lock.slash")
+                            .labelStyle(.iconOnly)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
-                    .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
+                    .accessibilityLabel("Forget certificate for \(url.host() ?? url.absoluteString)")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityAction(named: "Forget certificate") { hostToForget = url.host() }
             }
             Button("Edit servers or replace token") { showsServerEditor = true }
         } header: {

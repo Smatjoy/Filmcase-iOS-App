@@ -9,6 +9,7 @@ struct CollectionPushView: View {
 
     @State private var model: CollectionPushModel?
     @State private var loadError: String?
+    @Environment(\.dismiss) private var dismiss
 
     init(collectionID: Int, environment: some CameraFeatureEnvironment) {
         self.collectionID = collectionID
@@ -29,7 +30,21 @@ struct CollectionPushView: View {
         }
         .navigationTitle("Push to camera")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // The way out of the sheet for Switch Control, Voice Control and keyboard users,
+            // who cannot drag it away. Held back while a run is writing to the camera.
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") { dismiss() }
+                    .disabled(isWorking)
+            }
+        }
+        .interactiveDismissDisabled(isWorking)
         .task { await load() }
+    }
+
+    private var isWorking: Bool {
+        guard let phase = model?.phase else { return false }
+        return phase == .running || phase == .restoring
     }
 
     private func load() async {
@@ -53,7 +68,9 @@ private struct CollectionPushContent: View {
     var body: some View {
         List {
             if let message = model.errorMessage {
-                Section { Text(message).foregroundStyle(.red) }
+                Section {
+                    StatusLabel(text: message, systemImage: "xmark.octagon.fill", tint: .red)
+                }
             }
             bannerSection
             slotsSection
@@ -63,6 +80,11 @@ private struct CollectionPushContent: View {
         }
         .environment(\.editMode, .constant(model.phase == .editing ? .active : .inactive))
         .animation(reduceMotion ? nil : .default, value: model.assignment)
+        // The run goes on while VoiceOver focus sits elsewhere; say it when it stops or fails.
+        .onChange(of: model.phase) { _, phase in
+            if case .interrupted(_, let message) = phase { announce(message ?? "The push stopped.") }
+        }
+        .onChange(of: model.errorMessage) { _, message in announce(message ?? "") }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("Auto-fill") { model.autoFill() }
@@ -80,10 +102,12 @@ private struct CollectionPushContent: View {
         switch model.phase {
         case .interrupted(_, let message):
             Section {
-                Label(message ?? "The push stopped.", systemImage: "cable.connector.slash")
-                    .foregroundStyle(.orange)
+                StatusLabel(
+                    text: message ?? "The push stopped.", systemImage: "cable.connector.slash",
+                    tint: .orange)
                 Button("Resume") { Task { await model.resume() } }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
             }
         case .editing, .running, .finished, .restoring, .restored:
             EmptyView()
@@ -95,9 +119,16 @@ private struct CollectionPushContent: View {
             ForEach(model.rows) { row in
                 SlotRowView(row: row, status: model.statuses[row.slot])
                     .swipeActions {
-                        Button("Clear", role: .destructive) { model.clear(slot: row.slot) }
+                        if model.phase == .editing {
+                            Button("Clear", role: .destructive) { model.clear(slot: row.slot) }
+                        }
                     }
-                    .accessibilityAction(named: "Clear slot") { model.clear(slot: row.slot) }
+                    // Swipe is invisible to Switch Control and Voice Control: same action here.
+                    .accessibilityActions {
+                        if model.phase == .editing {
+                            Button("Clear slot") { model.clear(slot: row.slot) }
+                        }
+                    }
             }
             .onMove { source, destination in
                 model.moveRows(fromOffsets: source, toOffset: destination)
@@ -134,8 +165,7 @@ private struct CollectionPushContent: View {
         if model.phase == .editing, !model.validationMessages.isEmpty {
             Section("Fix before pushing") {
                 ForEach(model.validationMessages, id: \.self) { message in
-                    Label(message, systemImage: "exclamationmark.circle")
-                        .foregroundStyle(.orange)
+                    StatusLabel(text: message, systemImage: "exclamationmark.circle.fill", tint: .orange)
                 }
             }
         }
@@ -148,6 +178,7 @@ private struct CollectionPushContent: View {
             case .editing:
                 Button("Push to camera") { Task { await model.start() } }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                     .disabled(!model.canStart)
             case .running, .restoring:
                 ProgressView(model.phase == .restoring ? "Restoring" : "Pushing")
@@ -166,20 +197,26 @@ private struct SlotRowView: View {
     let status: CollectionPushModel.SlotStatus?
 
     var body: some View {
-        HStack {
+        // Column at accessibility sizes so the slot name and status never truncate.
+        AdaptiveStack(spacing: 8) {
             Text(row.title)
                 .font(.headline.monospaced())
                 .frame(minWidth: 36, alignment: .leading)
             Text(row.displayName)
                 .foregroundStyle(row.item == nil ? .secondary : .primary)
-            Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
             if let text = status?.displayText {
-                Text(text).font(.caption).foregroundStyle(.secondary)
+                Text(text).font(.caption).secondaryText()
             }
+            // Status is never colour alone: each indicator has its own shape and the row
+            // also carries the status as text.
             StatusIcon(indicator: status?.indicator ?? .none)
-                .accessibilityLabel(status?.accessibilityText ?? "")
         }
-        .accessibilityElement(children: .combine)
+        // One stop: "C3, Kodak Portra 400" with the status as its value. The visible text and
+        // the icon are folded in here instead of being read as duplicates.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(row.title), \(row.displayName)")
+        .accessibilityValue(status?.accessibilityText ?? "")
     }
 }
 

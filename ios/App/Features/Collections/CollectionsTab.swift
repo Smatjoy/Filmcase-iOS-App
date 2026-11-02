@@ -58,22 +58,27 @@ private struct CollectionRow: View {
     let thumbnails: ThumbnailLoader
 
     @ScaledMetric(relativeTo: .body) private var thumbnailSize = 48.0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(spacing: 12) {
+        // Column at accessibility sizes so names and film simulations are never cut off.
+        AdaptiveStack(spacing: 12) {
             ThumbnailView(path: collection.coverThumbnailURLs.first ?? nil, loader: thumbnails)
-                .frame(width: thumbnailSize, height: thumbnailSize)
+                .frame(width: min(thumbnailSize, 96), height: min(thumbnailSize, 96))
                 .clipShape(.rect(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 2) {
                 Text(collection.name).font(.headline)
                 Text(collection.filmSimulations.joined(separator: ", "))
-                    .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.subheadline).secondaryText()
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             }
-            Spacer(minLength: 0)
-            Text(collection.recipeCount, format: .number).foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(collection.recipeCount, format: .number).secondaryText()
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(collection.name), \(collection.recipeCount) recipes")
+        // Inflected so one recipe reads "1 recipe". A model-owned label is requested in the
+        // audit's open questions (CollectionSummary.accessibilityLabel).
+        .accessibilityLabel(Text("\(collection.name), ^[\(collection.recipeCount) recipe](inflect: true)"))
     }
 }
 
@@ -114,7 +119,10 @@ private struct CollectionDetailView: View {
         .task { await model.loadDetail(id: collectionID) }
         .sheet(isPresented: $showsPush) {
             // Written by the P7 worker (Features/Camera).
-            CollectionPushView(collectionID: collectionID, environment: environment)
+            // The push screen has a title, a toolbar and a Close button, so it needs its own stack.
+            NavigationStack {
+                CollectionPushView(collectionID: collectionID, environment: environment)
+            }
         }
     }
 
@@ -124,12 +132,12 @@ private struct CollectionDetailView: View {
                 NavigationLink(value: CollectionsRoute.recipe(pair.element.id)) {
                     HStack {
                         Text("\(pair.offset + 1)")
-                            .font(AppFont.mono(15, relativeTo: .body, bold: true))
-                            .foregroundStyle(.secondary)
+                            .appMonoFont(15, relativeTo: .body, bold: true)
+                            .secondaryText()
                             .frame(minWidth: 28, alignment: .leading)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(pair.element.name).font(.headline)
-                            Text(pair.element.filmSimulation).font(.subheadline).foregroundStyle(.secondary)
+                            Text(pair.element.filmSimulation).font(.subheadline).secondaryText()
                         }
                     }
                     .accessibilityElement(children: .combine)
