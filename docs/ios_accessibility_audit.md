@@ -59,6 +59,18 @@ which follow Bold Text.
 | Reduce Transparency | App uses `.fill` / `.quaternary` shapes, not materials; glass is system chrome (tab bar, accessory, toolbar) which adapts itself. | Low | Nothing to do. | Verified in code |
 | Haptics | `.sensoryFeedback` is never the only signal (all results also have text). | Low | None. | Verified in code |
 
+## Automated audit (CI and Mac)
+
+`FilmcaseUITests` runs `performAccessibilityAudit()` on the demo recipes list and recipe detail. The first run, on Xcode 27.2 with an iPhone 17 simulator on iOS 26.5, reported:
+
+| Issue | Cause | Resolution |
+|---|---|---|
+| Contrast "nearly passed" on list subtitles (film simulation) | System `.secondary` at subheadline size | **Fixed**: `secondaryText()` now uses 75 % of the primary colour (about 10:1), and full primary under Increase Contrast |
+| Contrast failed on the lower spec-sheet rows and the `specSheet` container | Those elements extend under the translucent tab bar and its bottom accessory, and the audit measures them against the bar. The rows are full primary on the page | **Ignored, false positive**: contrast issues only for elements reaching into the bottom chrome (the tab bar plus about 60 pt) |
+| Text clipped: "Search recipes" | The system search field's placeholder is drawn by UIKit | **Ignored, false positive**: clipped text only on `.searchField` |
+
+Every other issue type still fails the test.
+
 ## Needs on-device VoiceOver check
 
 1. Read order of every screen, in particular the push result (the announcement should not cut off the first read of the headline) and the Camera tab (pill, state, how-to card, slots, backups).

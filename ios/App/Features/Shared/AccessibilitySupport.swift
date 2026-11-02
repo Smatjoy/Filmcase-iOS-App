@@ -61,8 +61,9 @@ struct AdaptiveStack<Content: View>: View {
     }
 }
 
-/// Secondary text that becomes primary under Increase Contrast, so it stays legible on
-/// tinted and translucent fills.
+/// Secondary text at 75% of the primary colour (about 10:1 on the system backgrounds, light
+/// and dark), which passes the contrast audit where the system `.secondary` does not at small
+/// sizes; full primary under Increase Contrast.
 private struct SecondaryTextModifier: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -70,7 +71,7 @@ private struct SecondaryTextModifier: ViewModifier {
         content.foregroundStyle(
             contrast == .increased
                 ? AnyShapeStyle(HierarchicalShapeStyle.primary)
-                : AnyShapeStyle(HierarchicalShapeStyle.secondary))
+                : AnyShapeStyle(Color.primary.opacity(0.75)))
     }
 }
 
