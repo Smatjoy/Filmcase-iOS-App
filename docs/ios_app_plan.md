@@ -143,7 +143,7 @@ Each phase lists its **acceptance gate**. Nothing merges until the gate is green
 | **P5** ✅ | **ICCameraTransport** (adapter over `CameraTransport`/`PTPDevice`) + `PTPChannelDevice` (framing from S1). | Mac | Mac + manual | Manual push to C7 verified on the X-T50, 2026-11-01 (iOS 27.2, homelab server). |
 | **P6** 🔨 | **App shell + library UI**, XcodeGen `ios/project.yml`, SwiftData adapters, onboarding (server URLs → pin → token). | Cloud → macOS | CI | CI: `xcodegen` + `xcodebuild test` (unit + one UI test on the demo flavor: add server → list → detail). |
 | **P7** 🔨 | **Camera UI**: slot grid, push sheet, backup/restore, collection push. | Cloud → macOS | CI + manual | CI UI test on the `FakePTPDevice` demo flavor; manual full C1–C7 push (checklist §9). |
-| **S2** | **Spike: BLE protocol.** | Cloud (capture scripts + notes template) | Mac + camera | `docs/ble_protocol.md` with captured evidence, or a recorded **no-go**. |
+| **S2** ⏸ | **Spike: BLE protocol.** Parked as a todo (2026-11-02). | Cloud (capture scripts + notes template) | Mac + camera | `docs/ble_protocol.md` with captured evidence, or a recorded **no-go**. |
 | **P8** | **BLE / PTP-IP transport** (only if S2 is a go). Protocol logic in FilmcaseKit, socket/CB adapter thin. | Cloud → macOS | Cloud + CI + manual | Push vectors pass through the new transport's fake on Linux; manual verified push. |
 | **P9** | Polish: Live Activity, App Intents, accessibility audit, TestFlight. | Cloud → macOS | CI + manual | `axiom-shipping` checklist; TestFlight checklist §9. |
 
@@ -180,7 +180,7 @@ Worker return schema (fixed):
 Three routes, in order of preference:
 
 1. **Remote Control.** If the Mac is connected to this session, the lead runs `xcodegen`, `xcodebuild build`/`test` and simulator tests there directly, reads the errors, fixes them in the cloud, pulls and re-runs. Requirements on the Mac: the repo cloned in a normal folder (not inside a hidden directory under `~` or `~/Library`), that folder added to Remote Control in the Claude desktop app (Settings → Claude Code → Remote Control), the app up to date, Xcode 26 and `brew install xcodegen`. Camera and BLE steps still need your hands.
-2. **GitHub Actions (`.github/workflows/ios.yml`).** On `macos-26` (Xcode 26.x, iOS 26 simulator): `brew install xcodegen` → `xcodegen` → `swift test` for FilmcaseKit → `xcodebuild test` for the app scheme (unit tests + the demo-flavor UI test) on an iOS 26 simulator. Path-filtered to `ios/**`, `concurrency` cancels superseded runs, and the `.xcresult` bundle is uploaded on failure. **Written but not pushed until you approve the Actions spend.** macOS minutes are billed at a 10× multiplier on private repos (around $0.062/min after the free allowance).
+2. **GitHub Actions (`.github/workflows/ios.yml`).** On `macos-26` (Xcode 26.x, iOS 26 simulator): `brew install xcodegen` → `xcodegen` → `swift test` for FilmcaseKit → `xcodebuild test` for the app scheme (unit tests + the demo-flavor UI test) on an iOS 26 simulator. Path-filtered to `ios/**`, `concurrency` cancels superseded runs, and the `.xcresult` bundle is uploaded on failure. Approved and pushed 2026-11-02. The repository is public, so macOS minutes are free.
 3. **Paste-back.** Build on the Mac, paste the errors, and the lead fixes them.
 
 ---
@@ -193,7 +193,7 @@ Three routes, in order of preference:
 4. **Minimum iOS**: **iOS 26** (decided).
 5. **Remote access**: **LAN + Tailscale with automatic switching** (decided). Token auth optional; the API is open when the token is unset, like the HTML UI (amended 2026-11-01). The HTML UI stays unauthenticated (ADR 022, deferred).
 6. **Upstream**: P0 is a natural upstream PR to `gosku/filmcase`. The iOS app lives in `ios/` in this fork.
-7. **Actions spend**: pending your OK before `ios.yml` is pushed.
+7. **Actions spend**: approved 2026-11-02; `ios.yml` runs on pushes to `main` and `claude/**` that touch `ios/`.
 
 ---
 
