@@ -102,23 +102,32 @@ public final class PushSheetModel {
 
     @ObservationIgnored private let workflow: SlotBackupWorkflow
     @ObservationIgnored private let source: (any SlotSource)?
+    @ObservationIgnored private let activity: (any PushActivityReporter)?
     private var fixedSlots: [SlotItem]
 
     /// A model over slots read elsewhere; `updateSlots` replaces them.
-    public init(recipe: Recipe, slots: [SlotItem], workflow: SlotBackupWorkflow) {
+    public init(
+        recipe: Recipe, slots: [SlotItem], workflow: SlotBackupWorkflow,
+        activity: (any PushActivityReporter)? = nil
+    ) {
         self.recipe = recipe
         self.fixedSlots = slots
         self.workflow = workflow
         self.source = nil
+        self.activity = activity
     }
 
     /// A model that owns its slots: it shows the camera model's slots, and reads them again
     /// after every push or restore the camera answered. Run `observe()` from `.task`.
-    public init(recipe: Recipe, camera: any SlotSource, workflow: SlotBackupWorkflow) {
+    public init(
+        recipe: Recipe, camera: any SlotSource, workflow: SlotBackupWorkflow,
+        activity: (any PushActivityReporter)? = nil
+    ) {
         self.recipe = recipe
         self.fixedSlots = []
         self.workflow = workflow
         self.source = camera
+        self.activity = activity
     }
 
     public var canRestore: Bool {
@@ -184,6 +193,7 @@ public final class PushSheetModel {
         guard case .confirming(let slot) = phase else { return }
         phase = .pushing(slot: slot.index)
         lastBackup = nil
+        await activity?.start(content: .singleInProgress(recipeName: recipe.name, slot: slot.index))
         let camera = await workflow.runner.cameraName
         let before = await latestBackup(slot: slot.index, camera: camera)?.id
         let result: Outcome.Result
@@ -191,6 +201,7 @@ public final class PushSheetModel {
             result = try await Self.map(workflow.push(recipe, to: slot.index))
         } catch is CancellationError {
             phase = .choosingSlot
+            await endActivity(.singleFailed(recipeName: recipe.name, slot: slot.index, reason: "Cancelled"))
             return
         } catch {
             result = .failed(UserMessages.text(for: error))
@@ -200,6 +211,7 @@ public final class PushSheetModel {
             lastBackup = backup
         }
         finish(Outcome(action: .push, slot: slot.index, result: result))
+        await endActivity(activityContent(slot: slot.index, result: result))
         await refreshAfter(result)
     }
 
@@ -230,6 +242,19 @@ public final class PushSheetModel {
         case .verified, .partiallyFailed: await source?.refreshSlots()
         case .connectionLost, .failed: break
         }
+    }
+
+    private func activityContent(slot: Int, result: Outcome.Result) -> PushActivityContent {
+        switch result {
+        case .verified: .singleFinished(recipeName: recipe.name, slot: slot, result: .verified)
+        case .partiallyFailed(let names): .singleFinished(recipeName: recipe.name, slot: slot, result: .partiallyFailed(names))
+        case .connectionLost: .singleFinished(recipeName: recipe.name, slot: slot, result: .connectionLost)
+        case .failed(let text): .singleFailed(recipeName: recipe.name, slot: slot, reason: text)
+        }
+    }
+
+    private func endActivity(_ content: PushActivityContent) async {
+        await activity?.end(content, dismissal: content.suggestedDismissal)
     }
 
     private func finish(_ outcome: Outcome) {

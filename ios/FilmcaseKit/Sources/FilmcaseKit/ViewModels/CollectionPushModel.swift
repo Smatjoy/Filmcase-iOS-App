@@ -98,11 +98,19 @@ public final class CollectionPushModel {
     @ObservationIgnored private var lastReport: CollectionPushReport?
     /// Slots finished by earlier runs of the same push (a resume continues the count).
     @ObservationIgnored private var completedBeforeRun = 0
+    @ObservationIgnored private let activity: (any PushActivityReporter)?
+    @ObservationIgnored private let activityTitle: String
 
+    /// - Parameters:
+    ///   - activity: Told about each run (start, a step per slot, end) for a Live Activity.
+    ///   - activityTitle: The collection's name, shown as the activity's title.
     public init(
         items: [Item], recipes: [RecipeID: Recipe], slotCount: Int,
-        workflow: SlotBackupWorkflow, clock: any FilmcaseClock = SystemClock()
+        workflow: SlotBackupWorkflow, clock: any FilmcaseClock = SystemClock(),
+        activity: (any PushActivityReporter)? = nil, activityTitle: String = "Collection"
     ) {
+        self.activity = activity
+        self.activityTitle = activityTitle
         self.items = items
         self.recipes = recipes
         self.slotCount = slotCount
@@ -114,7 +122,7 @@ public final class CollectionPushModel {
     /// Load the camera payload of every recipe in *collection* and build the model.
     public static func load(
         collection: CollectionDetail, client: FilmcaseClient, workflow: SlotBackupWorkflow,
-        clock: any FilmcaseClock = SystemClock()
+        clock: any FilmcaseClock = SystemClock(), activity: (any PushActivityReporter)? = nil
     ) async throws -> CollectionPushModel {
         let members = CollectionsModel.ordered(collection)
         var recipes: [RecipeID: Recipe] = [:]
@@ -132,7 +140,8 @@ public final class CollectionPushModel {
         }
         return CollectionPushModel(
             items: members.map { Item(id: $0.id, name: $0.name) }, recipes: recipes,
-            slotCount: slotCount, workflow: workflow, clock: clock)
+            slotCount: slotCount, workflow: workflow, clock: clock,
+            activity: activity, activityTitle: collection.name)
     }
 
     // --- derived ---
@@ -273,6 +282,7 @@ public final class CollectionPushModel {
         phase = .running
         do {
             let run = try await push.start(recipes: recipes, assignment: assignment)
+            await activity?.start(content: activityContent(stage: .running))
             await follow(run)
         } catch {
             phase = .editing
@@ -291,6 +301,7 @@ public final class CollectionPushModel {
         completedBeforeRun = report.done.count
         do {
             let run = try await push.resume(from: report, recipes: recipes)
+            await activity?.start(content: activityContent(stage: .running))
             await follow(run)
         } catch {
             phase = .interrupted(report, message: UserMessages.text(for: error))
@@ -330,7 +341,10 @@ public final class CollectionPushModel {
 
     private func follow(_ run: CollectionPushRun) async {
         await withTaskCancellationHandler {
-            for await progress in run.progress { apply(progress) }
+            for await progress in run.progress {
+                apply(progress)
+                await activity?.update(activityContent(stage: .running))
+            }
             do {
                 let report = try await run.report
                 conclude(report, message: nil)
@@ -345,6 +359,50 @@ public final class CollectionPushModel {
         } onCancel: {
             run.cancel()
         }
+        await endActivity()
+    }
+
+    // --- live activity ---
+
+    private func marks() -> [PushActivityContent.SlotMark] {
+        assignment.keys.sorted().map { slot in
+            let status: PushActivityContent.SlotMark.Status
+            switch statuses[slot] ?? .waiting {
+            case .waiting: status = .waiting
+            case .pushing: status = .active
+            case .done(.verified): status = .verified
+            case .done(.partiallyFailed): status = .partial
+            case .done(.connectionLost): status = .lost
+            }
+            return PushActivityContent.SlotMark(slot: slot, status: status)
+        }
+    }
+
+    private func activityContent(
+        stage: PushActivityContent.CollectionStage
+    ) -> PushActivityContent {
+        let activeSlot = statuses.first { $0.value == .pushing }?.key
+        let name = activeSlot.flatMap { assignment[$0] }.flatMap { id in items.first { $0.id == id }?.name }
+        return PushActivityContent.collection(
+            title: activityTitle, marks: marks(), completed: completed, total: total,
+            currentName: name, stage: stage)
+    }
+
+    /// Tell the reporter how this run ended, from the phase it left the model in.
+    private func endActivity() async {
+        guard let activity else { return }
+        let stage: PushActivityContent.CollectionStage
+        switch phase {
+        case .finished:
+            stage = .finished
+        case .interrupted(let report, _):
+            let lost = report.remaining.first.flatMap { report.results[$0] } == .connectionLost
+            stage = .stopped(connectionLost: lost)
+        default:
+            stage = .failed(reason: errorMessage ?? "Cancelled")
+        }
+        let content = activityContent(stage: stage)
+        await activity.end(content, dismissal: content.suggestedDismissal)
     }
 
     private func apply(_ progress: CollectionPushProgress) {

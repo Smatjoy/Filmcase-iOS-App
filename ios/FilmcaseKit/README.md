@@ -88,3 +88,12 @@ Tests in `Tests/FilmcaseKitTests/ViewModels/` drive the models with the API fixt
   after a push or restore the camera answered.
 - `CollectionPushModel.moveRows(fromOffsets:toOffset:)` has `List.onMove` semantics (rows shift).
   `SlotStatus` and `SlotPushResult` give `displayText`, `accessibilityText` and `indicator`.
+
+## Intents and Live Activity logic (P9a)
+
+Platform-neutral logic for the App Intents and ActivityKit adapters in the app target; nothing here imports an Apple-only framework.
+
+- `Intents/RecipeLookup`: `recipes(withIDs:)`, `search(name:)`, `suggested()` (favourites, then most used, at most 20, never unnamed) returning `RecipeEntitySummary`.
+- `Intents/SendRecipeToSlotAction`: `perform(recipeID:slot:)` returns a `SendRecipeOutcome` (`result` + Siri `dialog`). Always backs the slot up first; `overwritePrompt(recipeName:slot:)` is the confirmation text.
+- `Intents/ReadSlotsAction`: `perform()` returns a `ReadSlotsOutcome` (`slots` + spoken `dialog`).
+- `LiveActivity/PushActivityContent`: the (Codable, under 4 KB) content state; `PushActivityReporter` is what the ActivityKit adapter implements. `PushSheetModel` and `CollectionPushModel` take an optional `activity:` reporter and call `start`, `update` per slot, `end`. `RecordingPushActivityReporter` serves tests.
