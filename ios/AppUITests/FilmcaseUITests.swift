@@ -49,17 +49,21 @@ final class FilmcaseUITests: XCTestCase {
 
     /// Apple's audit with exactly two known false positives ignored, both recorded in
     /// docs/ios_accessibility_audit.md; every other issue fails the test.
-    /// - Contrast on elements that extend under the tab bar and its bottom accessory: the
+    /// - Contrast on elements that extend under the tab bar or its bottom accessory (both
+    ///   measured from their own frames): the
     ///   audit measures them against the translucent bar instead of the page, so primary text
     ///   in the lower spec-sheet rows was reported although it is full primary on the page.
     /// - Clipped text in the system search field: its placeholder is drawn by UIKit, not us.
     @MainActor
     private func audit(_ app: XCUIApplication) throws {
-        let window = app.windows.firstMatch.frame
-        let tabBar = app.tabBars.firstMatch
-        // The bar plus the bottom accessory above it (about 60 pt); the bottom 160 pt if the
-        // bar cannot be found.
-        let chromeTop = tabBar.exists ? tabBar.frame.minY - 60 : window.maxY - 160
+        // The top of the bottom chrome, measured rather than guessed: the bottom accessory
+        // is our own connection pill ("Camera connection"), and the tab bar sits below it.
+        // With neither found, nothing is ignored.
+        let chromeFrames = [app.tabBars.firstMatch, app.buttons["Camera connection"].firstMatch]
+            .filter(\.exists)
+            .map(\.frame)
+        // 12 pt for the accessory's glass capsule, which is a little taller than the button.
+        let chromeTop = (chromeFrames.map(\.minY).min() ?? .greatestFiniteMagnitude) - 12
 
         // API: XCUIApplication.performAccessibilityAudit(for:_:) (iOS 17); returning true
         // from the handler ignores that issue.

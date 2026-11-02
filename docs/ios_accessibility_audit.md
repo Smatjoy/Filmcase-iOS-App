@@ -66,7 +66,7 @@ which follow Bold Text.
 | Issue | Cause | Resolution |
 |---|---|---|
 | Contrast "nearly passed" on list subtitles (film simulation) | System `.secondary` at subheadline size | **Fixed**: `secondaryText()` now uses 75 % of the primary colour (about 10:1), and full primary under Increase Contrast |
-| Contrast failed on the lower spec-sheet rows and the `specSheet` container | Those elements extend under the translucent tab bar and its bottom accessory, and the audit measures them against the bar. The rows are full primary on the page | **Ignored, false positive**: contrast issues only for elements reaching into the bottom chrome (the tab bar plus about 60 pt) |
+| Contrast failed on the lower spec-sheet rows and the `specSheet` container | Those elements extend under the translucent tab bar and its bottom accessory, and the audit measures them against the bar. The rows are full primary on the page | **Ignored, false positive**: contrast issues only for elements reaching under the tab bar or the bottom accessory, both measured from their own frames |
 | Text clipped: "Search recipes" | The system search field's placeholder is drawn by UIKit | **Ignored, false positive**: clipped text only on `.searchField` |
 
 Every other issue type still fails the test.
