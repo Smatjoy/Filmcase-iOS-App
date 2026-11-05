@@ -58,6 +58,13 @@ public final class RecipeEditorModel {
 
     public func choices(_ field: String) -> [String] { options?.choices[field] ?? [] }
 
+    /// White balances to pick from, with the recipe's own first if the form has no such
+    /// choice: one read from a photo ("Daylight Fluorescent") must still show.
+    public var whiteBalances: [String] {
+        let offered = choices("white_balance")
+        return offered.contains(draft.whiteBalance) ? offered : [draft.whiteBalance] + offered
+    }
+
     /// The grain sizes that apply; "Off" is what roughness Off means, not a size to pick.
     public var grainSizes: [String] { choices("grain_size").filter { $0 != "Off" } }
 

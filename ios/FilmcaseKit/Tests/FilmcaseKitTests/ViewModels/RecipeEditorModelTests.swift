@@ -44,6 +44,16 @@ struct RecipeEditorModelTests {
         #expect(model.range("highlight", fallback: RecipeFieldRange(min: 0, max: 0, step: 1)).step == 0.5)
     }
 
+    @Test func aWhiteBalanceFromAPhotoStaysPickable() async {
+        let model = RecipeEditorModel(mode: .create, client: rig().client)
+        await model.load()
+        #expect(model.whiteBalances == model.choices("white_balance"))
+
+        model.draft.whiteBalance = "Daylight Fluorescent"
+        #expect(model.whiteBalances.first == "Daylight Fluorescent")
+        #expect(model.whiteBalances.count == model.choices("white_balance").count + 1)
+    }
+
     @Test func fieldsAppearOnlyWhenTheyApply() async {
         let model = RecipeEditorModel(mode: .create, client: rig().client)
         await model.load()

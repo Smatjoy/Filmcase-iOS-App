@@ -132,7 +132,9 @@ private struct RecipeEditorForm: View {
 
     private var whiteBalanceSection: some View {
         Section("White balance") {
-            choicePicker("White balance", field: "white_balance", selection: $model.draft.whiteBalance)
+            Picker("White balance", selection: $model.draft.whiteBalance) {
+                ForEach(model.whiteBalances, id: \.self) { Text($0).tag($0) }
+            }
             if model.showsKelvin {
                 LabeledContent("Temperature (K)") {
                     TextField("6500", value: $model.draft.kelvinTemperature, format: .number.grouping(.never))

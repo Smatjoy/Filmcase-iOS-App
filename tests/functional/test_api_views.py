@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from django.test import override_settings
 
+from src.data.models import FujifilmRecipe
 from tests.factories import (
     FujifilmRecipeFactory,
     ImageFactory,
@@ -725,6 +726,22 @@ class TestEditRecipe:
         assert _post_json(client, f"/api/v1/recipes/{recipe.pk}/", {"name": "Renamed"}).status_code == 200
         recipe.refresh_from_db()
         assert recipe.name == "Renamed"
+
+    def test_a_white_balance_only_a_photo_can_hold_still_lets_the_recipe_be_edited(self, client):
+        recipe_id = self._create(client)
+        FujifilmRecipe.objects.filter(pk=recipe_id).update(white_balance="Daylight Fluorescent")
+
+        response = _post_json(client, f"/api/v1/recipes/{recipe_id}/", {"description": "From EXIF"})
+
+        assert response.status_code == 200
+        values = json.loads(_get(client, f"/api/v1/recipes/{recipe_id}/form/").content)["values"]
+        assert values["white_balance"] == "Daylight Fluorescent"
+        assert values["description"] == "From EXIF"
+
+    def test_an_unknown_white_balance_is_still_refused(self, client):
+        recipe_id = self._create(client)
+
+        assert _post_json(client, f"/api/v1/recipes/{recipe_id}/", {"white_balance": "Moonlight"}).status_code == 400
 
     def test_404_for_a_missing_recipe(self, client):
         assert _post_json(client, "/api/v1/recipes/999999/", {"color": 1}).status_code == 404

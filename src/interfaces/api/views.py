@@ -72,6 +72,19 @@ def _stored_form_values(recipe: models.FujifilmRecipe) -> dict[str, object]:
     return values
 
 
+def _edit_form(recipe: models.FujifilmRecipe, body: dict[str, object]) -> interface_forms.CreateRecipe:
+    """
+    The form for writing *body* over *recipe*. A recipe read from a photo can hold a white
+    balance the form does not offer, and that must not stop it being renamed or described.
+    """
+    form = interface_forms.CreateRecipe(data={**_stored_form_values(recipe), **body})
+    field = form.fields["white_balance"]
+    stored, _ = recipe_views.parse_white_balance_for_form(recipe.white_balance)
+    if stored not in dict(field.choices):  # type: ignore[attr-defined]
+        field.choices = [*field.choices, (stored, stored)]  # type: ignore[attr-defined]
+    return form
+
+
 def _limits(field: object) -> dict[str, float]:
     limits: dict[str, float] = {}
     for validator in getattr(field, "validators", []):
@@ -284,7 +297,7 @@ class RecipeVersions(generic.View):
             body = _json_object(request)
         except _InvalidParameter as error:
             return _bad_request(str(error))
-        form = interface_forms.CreateRecipe(data={**_stored_form_values(recipe), **body})
+        form = _edit_form(recipe, body)
         if not form.is_valid():
             return _form_response(form)
         try:
@@ -355,7 +368,7 @@ class RecipeDetail(generic.View):
             body = _json_object(request)
         except _InvalidParameter as error:
             return _bad_request(str(error))
-        form = interface_forms.CreateRecipe(data={**_stored_form_values(recipe), **body})
+        form = _edit_form(recipe, body)
         if not form.is_valid():
             return _form_response(form)
         try:
