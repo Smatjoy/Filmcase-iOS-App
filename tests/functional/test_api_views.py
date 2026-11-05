@@ -770,3 +770,76 @@ class TestRemoveRecipe:
 
     def test_404_for_a_missing_recipe(self, client):
         assert _post_json(client, "/api/v1/recipes/999999/remove/", {}).status_code == 404
+
+
+@pytest.mark.django_db
+class TestCollectionWrites:
+    def test_creates_a_collection_keeping_the_order_sent(self, client):
+        first, second = FujifilmRecipeFactory(), FujifilmRecipeFactory()
+
+        response = _post_json(client, "/api/v1/collections/", {"name": "Trip", "recipe_ids": [second.pk, first.pk]})
+
+        assert response.status_code == 201
+        collection_id = json.loads(response.content)["id"]
+        detail = json.loads(_get(client, f"/api/v1/collections/{collection_id}/").content)
+        assert detail["name"] == "Trip"
+        assert detail["recipe_ids"] == [second.pk, first.pk]
+
+    def test_an_empty_collection_is_allowed(self, client):
+        assert _post_json(client, "/api/v1/collections/", {"name": "Later"}).status_code == 201
+
+    def test_edits_name_recipes_and_order(self, client):
+        first, second, third = (FujifilmRecipeFactory() for _ in range(3))
+        collection_id = json.loads(
+            _post_json(client, "/api/v1/collections/", {"name": "Trip", "recipe_ids": [first.pk, second.pk]}).content
+        )["id"]
+
+        response = _post_json(
+            client, f"/api/v1/collections/{collection_id}/", {"name": "Holiday", "recipe_ids": [third.pk, first.pk]}
+        )
+
+        assert response.status_code == 200
+        detail = json.loads(_get(client, f"/api/v1/collections/{collection_id}/").content)
+        assert detail["name"] == "Holiday"
+        assert detail["recipe_ids"] == [third.pk, first.pk]
+
+    @pytest.mark.parametrize(
+        ("body", "message"),
+        [
+            ({"name": ""}, "Give the collection a name"),
+            ({"name": "x" * 101}, "Give the collection a name"),
+            ({"name": "Ok", "recipe_ids": "1"}, "list of integers"),
+            ({"name": "Ok", "recipe_ids": [True]}, "list of integers"),
+            ({"name": "Ok", "recipe_ids": [999999]}, "no longer exists"),
+        ],
+    )
+    def test_400_for_a_bad_collection(self, client, body, message):
+        response = _post_json(client, "/api/v1/collections/", body)
+
+        assert response.status_code == 400
+        assert message in json.loads(response.content)["error"]
+
+    def test_400_for_a_taken_name(self, client):
+        assert _post_json(client, "/api/v1/collections/", {"name": "Trip"}).status_code == 201
+
+        response = _post_json(client, "/api/v1/collections/", {"name": "trip"})
+
+        assert response.status_code == 400
+        assert "already exists" in json.loads(response.content)["error"]
+
+    def test_404_editing_a_missing_collection(self, client):
+        assert _post_json(client, "/api/v1/collections/999999/", {"name": "X"}).status_code == 404
+
+    def test_deleting_keeps_the_recipes(self, client):
+        recipe = FujifilmRecipeFactory()
+        collection_id = json.loads(
+            _post_json(client, "/api/v1/collections/", {"name": "Trip", "recipe_ids": [recipe.pk]}).content
+        )["id"]
+
+        assert _post_json(client, f"/api/v1/collections/{collection_id}/remove/", {}).status_code == 200
+
+        assert _get(client, f"/api/v1/collections/{collection_id}/").status_code == 404
+        assert _get(client, f"/api/v1/recipes/{recipe.pk}/").status_code == 200
+
+    def test_404_deleting_a_missing_collection(self, client):
+        assert _post_json(client, "/api/v1/collections/999999/remove/", {}).status_code == 404

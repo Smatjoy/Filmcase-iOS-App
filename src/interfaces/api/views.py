@@ -8,6 +8,9 @@ from django import urls
 from django.core import validators
 from django.views import generic
 
+from src.application.usecases.collections import create_collection as create_collection_uc
+from src.application.usecases.collections import delete_collection as delete_collection_uc
+from src.application.usecases.collections import update_collection as update_collection_uc
 from src.application.usecases.recipes import create_recipe_manually as create_recipe_uc
 from src.application.usecases.recipes import create_recipe_version as create_version_uc
 from src.application.usecases.recipes import remove_recipes as remove_recipes_uc
@@ -77,6 +80,22 @@ def _limits(field: object) -> dict[str, float]:
         elif isinstance(validator, validators.MaxValueValidator):
             limits["max"] = float(validator.limit_value)
     return limits
+
+
+def _collection_fields(request: http.HttpRequest) -> tuple[str, list[int]]:
+    """The ``name`` and ``recipe_ids`` of a collection write, checked as the browser's form does."""
+    body = _json_object(request)
+    form = interface_forms.Collection({"name": body.get("name")})
+    if not form.is_valid():
+        raise _InvalidParameter("Give the collection a name of up to 100 characters.")
+    recipe_ids = body.get("recipe_ids", [])
+    if not isinstance(recipe_ids, list) or not all(type(r) is int for r in recipe_ids):
+        raise _InvalidParameter("recipe_ids must be a list of integers.")
+    return form.cleaned_data["name"], recipe_ids
+
+
+_COLLECTION_NAME_TAKEN = "A collection with this name already exists."
+_COLLECTION_RECIPE_GONE = "One of the selected recipes no longer exists."
 
 
 def _thumbnail_url(image_id: int | None) -> str | None:
@@ -415,6 +434,20 @@ class CollectionList(generic.View):
     ``film_simulation``. Not paginated: the collections page is not either.
     """
 
+    def post(self, request: http.HttpRequest) -> http.HttpResponse:
+        """Create a collection from ``name`` and ``recipe_ids``."""
+        try:
+            name, recipe_ids = _collection_fields(request)
+        except _InvalidParameter as error:
+            return _bad_request(str(error))
+        try:
+            result = create_collection_uc.create_collection(name=name, recipe_ids=recipe_ids)
+        except create_collection_uc.CollectionNameTaken:
+            return _bad_request(_COLLECTION_NAME_TAKEN)
+        except create_collection_uc.RecipeNotFound:
+            return _bad_request(_COLLECTION_RECIPE_GONE)
+        return http.JsonResponse({"id": result.collection_id}, status=201)
+
     def get(self, request: http.HttpRequest) -> http.HttpResponse:
         summaries = recipe_queries.get_collection_summaries(
             name_search=request.GET.get("name_search", "").strip(),
@@ -436,12 +469,43 @@ class CollectionList(generic.View):
         })
 
 
+class CollectionRemove(generic.View):
+    """
+    Delete a collection. Its recipes stay in the library.
+
+    :raises Http404: if no collection with the given ID exists.
+    """
+
+    def post(self, request: http.HttpRequest, collection_id: int) -> http.HttpResponse:
+        try:
+            delete_collection_uc.delete_collection(collection_id=collection_id)
+        except delete_collection_uc.CollectionNotFound:
+            raise http.Http404
+        return http.JsonResponse({"removed": collection_id})
+
+
 class CollectionDetail(generic.View):
     """
     Return one collection with its recipes in stored order.
 
     :raises Http404: if no collection with the given ID exists.
     """
+
+    def post(self, request: http.HttpRequest, collection_id: int) -> http.HttpResponse:
+        """Replace the collection's name and recipes. Order is kept as sent."""
+        try:
+            name, recipe_ids = _collection_fields(request)
+        except _InvalidParameter as error:
+            return _bad_request(str(error))
+        try:
+            update_collection_uc.update_collection(collection_id=collection_id, name=name, recipe_ids=recipe_ids)
+        except update_collection_uc.CollectionNotFound:
+            raise http.Http404
+        except update_collection_uc.CollectionNameTaken:
+            return _bad_request(_COLLECTION_NAME_TAKEN)
+        except update_collection_uc.RecipeNotFound:
+            return _bad_request(_COLLECTION_RECIPE_GONE)
+        return http.JsonResponse({"id": collection_id})
 
     def get(self, request: http.HttpRequest, collection_id: int) -> http.HttpResponse:
         try:
