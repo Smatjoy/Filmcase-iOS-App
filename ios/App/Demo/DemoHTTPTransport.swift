@@ -40,6 +40,8 @@ struct DemoHTTPTransport: HTTPTransport {
         case ("recipes", 1): return favoritesOnly ? "recipe_list_favorites" : "recipe_list"
         case ("recipes", 2): return "recipe_detail"
         case ("recipes", 3) where rest[2] == "camera-payload.json": return "camera_payload"
+        // Writes are accepted and not kept: the fixtures do not change.
+        case ("recipes", 3) where rest[2] == "name": return "recipe_detail"
         case ("collections", 1): return "collection_list"
         case ("collections", 2): return "collection_detail"
         case ("camera", 2) where rest[1] == "client-config.json": return "camera_client_config"

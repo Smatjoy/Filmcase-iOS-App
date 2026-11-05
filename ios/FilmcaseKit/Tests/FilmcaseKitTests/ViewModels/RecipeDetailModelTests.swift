@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -174,7 +175,7 @@ struct RecipeDetailModelTests {
         await model.load()
         #expect(model.state == .loaded)
         #expect(!model.canSendToCamera)
-        #expect(model.sendBlockedReason == "Name this recipe in Filmcase on the web before sending it to a camera.")
+        #expect(model.sendBlockedReason == "Name this recipe before sending it to a camera.")
     }
 
     @Test func aRecipeTheConnectedCameraCanTakeCanBeSent() async {
@@ -230,8 +231,70 @@ struct RecipeDetailModelTests {
         await model.load()
         #expect(model.state == .loaded)
         #expect(!model.canSendToCamera)
-        #expect(model.sendBlockedReason == "Name this recipe in Filmcase on the web before sending it to a camera.")
+        #expect(model.sendBlockedReason == "Name this recipe before sending it to a camera.")
         #expect(!rig.transport.requests.contains { $0.url?.path.hasSuffix("camera-payload.json") == true })
+    }
+
+    /// A server whose recipe starts unnamed and takes a rename, as the real one does.
+    private func renameRig(refusing message: String? = nil) -> ModelRig {
+        let name = Mutex("")
+        return ModelRig(script: { request in
+            guard request.isAuthenticated else { return .fixture("recipe_list") }
+            let path = request.url?.path ?? ""
+            if request.url?.absoluteString.hasSuffix("/name/") == true {
+                if let message { return reply(json(["error": message]), status: 400) }
+                let body = (try? JSONSerialization.jsonObject(with: request.httpBody ?? Data())) as? [String: Any]
+                name.withLock { $0 = body?["name"] as? String ?? "" }
+                return reply(json(["id": 1, "name": name.withLock { $0 }]))
+            }
+            let current = name.withLock { $0 }
+            if path.hasSuffix("camera-payload.json") {
+                if current.isEmpty { return .fixture("error_404", status: 404) }
+                var object = jsonObject(fixture: "camera_payload")
+                object["name"] = current
+                return reply(json(object))
+            }
+            var object = jsonObject(fixture: "recipe_detail")
+            object["name"] = current
+            return reply(json(object))
+        })
+    }
+
+    @Test func namingARecipeLetsItBeSent() async {
+        let rig = renameRig()
+        let model = RecipeDetailModel(recipeID: 1, client: rig.client)
+        await model.load()
+        #expect(model.needsName)
+        #expect(!model.canSendToCamera)
+        #expect(model.titleText == "\(model.detail?.filmSimulation ?? "") #\(model.detail?.id ?? 0)")
+        #expect(model.renamePromptTitle == "Name this recipe")
+
+        #expect(await model.rename(to: "  Kodak Gold "))
+
+        let write = rig.transport.requests.first { $0.url?.absoluteString.hasSuffix("/name/") == true }
+        #expect(write?.httpMethod == "POST")
+        #expect(write?.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(model.detail?.name == "Kodak Gold")
+        #expect(!model.needsName)
+        #expect(model.titleText == "Kodak Gold")
+        #expect(model.renamePromptTitle == "Rename recipe")
+        #expect(model.canSendToCamera)
+        #expect(model.renameCount == 1)
+        #expect(model.renameError == nil)
+    }
+
+    @Test func aRefusedNameShowsTheServersMessageAndChangesNothing() async {
+        let rig = renameRig(refusing: "Name must be 25 ASCII characters max.")
+        let model = RecipeDetailModel(recipeID: 1, client: rig.client)
+        await model.load()
+
+        #expect(await !model.rename(to: "Caff\u{E8}"))
+
+        #expect(model.renameError == "Name must be 25 ASCII characters max.")
+        #expect(model.renameCount == 0)
+        #expect(model.needsName)
+        model.clearRenameError()
+        #expect(model.renameError == nil)
     }
 
     @Test func unreadableCameraDataKeepsTheDetailButBlocksSending() async {

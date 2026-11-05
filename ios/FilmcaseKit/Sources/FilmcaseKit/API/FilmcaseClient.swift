@@ -111,6 +111,12 @@ public struct FilmcaseClient: Sendable {
     }
 
     /// The camera payload JSON for a recipe, unparsed.
+    /// Set a recipe's display name. The server validates it; a refusal is `.badRequest` with
+    /// a message to show.
+    public func setRecipeName(recipeId: Int, name: String) async throws {
+        _ = try await post("/api/v1/recipes/\(recipeId)/name/", body: ["name": name])
+    }
+
     public func cameraPayload(recipeId: Int) async throws -> Data {
         try await get("/api/v1/recipes/\(recipeId)/camera-payload.json")
     }
@@ -145,9 +151,25 @@ public struct FilmcaseClient: Sendable {
         }
     }
 
-    private func send(to base: URL, path: String, query: [URLQueryItem], token: String?) async throws -> Data {
+    /// A write goes to the active endpoint only. A failed one is not retried on the next,
+    /// because it may have reached the server before the connection dropped.
+    private func post<Body: Encodable>(_ path: String, body: Body) async throws -> Data {
+        let stored = try await tokenStore.token()
+        let base = try await endpoints.activeEndpoint()
+        let data = try JSONEncoder().encode(body)
+        return try await send(
+            to: base, path: path, query: [], token: stored?.isEmpty == false ? stored : nil, method: "POST", body: data)
+    }
+
+    private func send(
+        to base: URL, path: String, query: [URLQueryItem], token: String?, method: String = "GET", body: Data? = nil
+    ) async throws -> Data {
         var request = URLRequest(url: apiURL(base, path: path, query: query))
-        request.httpMethod = "GET"
+        request.httpMethod = method
+        if let body {
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         request.timeoutInterval = requestTimeout
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

@@ -6,6 +6,8 @@ struct RecipeDetailView: View {
 
     @State private var model: RecipeDetailModel
     @State private var showsSendSheet = false
+    @State private var showsRename = false
+    @State private var draftName = ""
 
     init(recipeID: Int, environment: AppEnvironment) {
         self.environment = environment
@@ -23,8 +25,35 @@ struct RecipeDetailView: View {
                 content
             }
         }
-        .navigationTitle(model.detail?.name ?? "Recipe")
+        .navigationTitle(model.titleText)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if model.detail != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Rename", systemImage: "pencil", action: beginRename)
+                        .disabled(model.isRenaming)
+                }
+            }
+        }
+        .alert(model.renamePromptTitle, isPresented: $showsRename) {
+            TextField("Name", text: $draftName)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+            Button("Save") { Task { await model.rename(to: draftName) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The camera shows this name on the slot. Up to 25 characters, without accents.")
+        }
+        .alert("Could not rename", isPresented: renameFailed) {
+            Button("Try again", action: beginRename)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(model.renameError ?? "")
+        }
+        // The list shows the name too.
+        .onChange(of: model.renameCount) { _, _ in
+            Task { await environment.library.reload() }
+        }
         .task { await model.load() }
         // A camera connected or left: judge the recipe against it again.
         .onChange(of: environment.cameraModel.isReady) { _, _ in
@@ -36,6 +65,16 @@ struct RecipeDetailView: View {
                 SendToCameraSheet(recipe: recipe, environment: environment)
             }
         }
+    }
+
+    private var renameFailed: Binding<Bool> {
+        Binding(get: { model.renameError != nil }, set: { if !$0 { model.clearRenameError() } })
+    }
+
+    private func beginRename() {
+        model.clearRenameError()
+        draftName = model.detail?.name ?? ""
+        showsRename = true
     }
 
     private var content: some View {
@@ -63,7 +102,26 @@ struct RecipeDetailView: View {
         }
     }
 
+    @ViewBuilder
     private var sendSection: some View {
+        if model.needsName {
+            VStack(alignment: .leading, spacing: 8) {
+                Button(action: beginRename) {
+                    Label("Name this recipe", systemImage: "pencil")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                if let reason = model.sendBlockedReason {
+                    Text(reason).font(.footnote).secondaryText()
+                }
+            }
+        } else {
+            sendButton
+        }
+    }
+
+    private var sendButton: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
                 showsSendSheet = true

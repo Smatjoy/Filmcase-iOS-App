@@ -22,6 +22,26 @@ public final class RecipeDetailModel {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    public private(set) var isRenaming = false
+    /// Why the last rename failed, as a sentence.
+    public private(set) var renameError: String?
+    /// How many renames went through, for a view that must refresh what shows the name.
+    public private(set) var renameCount = 0
+
+    /// The screen's title: the name, or the web's fallback ("Provia #7") until it has one.
+    public var titleText: String {
+        guard let detail else { return "Recipe" }
+        return needsName ? "\(detail.filmSimulation) #\(detail.id)" : detail.name
+    }
+
+    /// The title of the rename question.
+    public var renamePromptTitle: String { needsName ? "Name this recipe" : "Rename recipe" }
+
+    /// True once the recipe is loaded and has no name yet.
+    public var needsName: Bool {
+        detail?.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true
+    }
+
     @ObservationIgnored private let client: FilmcaseClient
     @ObservationIgnored private let camera: (any ConnectedCameraSource)?
     @ObservationIgnored private var payloadError: String?
@@ -49,6 +69,33 @@ public final class RecipeDetailModel {
         await loadCameraRecipe()
     }
 
+    /// Set the recipe's name on the server, then load it again so the name, the camera
+    /// payload and whether it can be sent all follow. False when it failed (`renameError`).
+    @discardableResult
+    public func rename(to name: String) async -> Bool {
+        guard !isRenaming else { return false }
+        isRenaming = true
+        renameError = nil
+        defer { isRenaming = false }
+        do {
+            try await client.setRecipeName(recipeId: recipeID, name: name.trimmingCharacters(in: .whitespacesAndNewlines))
+        } catch is CancellationError {
+            return false
+        } catch FilmcaseClientError.badRequest(let message) {
+            // The server's own sentence about the name, to fix and try again.
+            renameError = message
+            return false
+        } catch {
+            renameError = UserMessages.text(for: error)
+            return false
+        }
+        renameCount += 1
+        await load()
+        return true
+    }
+
+    public func clearRenameError() { renameError = nil }
+
     /// The camera was connected or disconnected: judge the recipe against it again.
     public func recheckCamera() async {
         await evaluateSending()
@@ -59,7 +106,7 @@ public final class RecipeDetailModel {
         // asking would only fail with a 404 that explains nothing.
         if detail?.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
             cameraRecipe = nil
-            payloadError = Self.unnamedReason
+            payloadError = RecipeSendRule.unnamedReason
             await evaluateSending()
             return
         }
@@ -76,15 +123,13 @@ public final class RecipeDetailModel {
         await evaluateSending()
     }
 
-    private static let unnamedReason = "Name this recipe in Filmcase on the web before sending it to a camera."
-
     private func evaluateSending() async {
         guard let recipe = cameraRecipe else {
             block(payloadError ?? "The camera data for this recipe is not loaded yet.")
             return
         }
         if recipe.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            block(Self.unnamedReason)
+            block(RecipeSendRule.unnamedReason)
             return
         }
         guard let connected = await camera?.connectedCamera() else {

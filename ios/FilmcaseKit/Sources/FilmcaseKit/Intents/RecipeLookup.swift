@@ -6,7 +6,7 @@ import Foundation
 /// The rule for a recipe that cannot be sent. Mirrors RecipeDetailModel's wording (a test pins
 /// that the two stay equal).
 public enum RecipeSendRule {
-    public static let unnamedReason = "Name this recipe in Filmcase on the web before sending it to a camera."
+    public static let unnamedReason = "Name this recipe before sending it to a camera."
 
     /// A slot needs a name, so a blank one cannot be sent.
     public static func isUnnamed(_ name: String) -> Bool {
