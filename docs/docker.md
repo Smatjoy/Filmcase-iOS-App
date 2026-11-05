@@ -49,7 +49,7 @@ Compose reads `.env` from the same directory. `.env.example` is the template.
 | `FILMCASE_WORKER_CONCURRENCY` | `8`                  | Photos processed at once. This is Celery's `--concurrency`, the pool inside one worker, not a count of workers. Each process loads Django and Pillow, so keep it near the core count on a server running other things. |
 | `SYNC_IMAGE_BATCH_SIZE`       | `100`                | Images per dispatch message. Each batch is expanded into one task per image by the worker that receives it, so this governs how quickly a large sync starts, not how many workers can run.                    |
 | `FILMCASE_SECRET_KEY`         | insecure dev default | Django signing key. Generate one before exposing the app.                                                                               |
-| `FILMCASE_API_TOKEN`          | empty (API open)     | Optional bearer token for the read-only JSON API under `/api/`. Empty leaves the API open, like the browser pages. See [ADR 022](ADRs/022-json-api-for-native-client.md). |
+| `FILMCASE_API_TOKEN`          | empty (API open)     | Optional bearer token for the JSON API under `/api/`. Empty leaves the API open, like the browser pages. See [ADR 022](ADRs/022-json-api-for-native-client.md). |
 | `FILMCASE_DB_PASSWORD`        | `fujifilm_recipes`   | PostgreSQL password, reachable only inside the compose network. Changing it after first start locks the app out of the existing volume. |
 
 `FILMCASE_HOST` must match what you actually type. It is written into the certificate as a
@@ -189,8 +189,8 @@ trust everyone is a different proposition, and you should put it behind your NAS
 proxy with authentication, or on a private network such as a VPN, rather than exposing
 the port directly. Never forward this port from the internet.
 
-The read-only JSON API under `/api/`, which the iOS app uses, is open too unless you set
-`FILMCASE_API_TOKEN`; then every `/api/` request needs `Authorization: Bearer <token>`. The
+The JSON API under `/api/`, which the iOS app uses to read and edit the library, is open too
+unless you set `FILMCASE_API_TOKEN`; then every `/api/` request needs `Authorization: Bearer <token>`. The
 browser pages and the camera JSON routes they fetch (`/camera/client-config.json` and
 `/recipes/<id>/camera-payload.json`) stay open either way.
 

@@ -537,3 +537,69 @@ class TestCameraJsonMirror:
 
     def test_unknown_recipe_is_not_revealed_without_the_token(self, client):
         assert client.get("/api/v1/recipes/99999/camera-payload.json").status_code == 401
+
+
+@pytest.mark.django_db
+class TestRecipeName:
+    def _post(self, client, recipe, body, **extra):
+        return client.post(
+            f"/api/v1/recipes/{recipe.pk}/name/", data=body, content_type="application/json", **{**AUTH, **extra}
+        )
+
+    def test_sets_the_name(self, client):
+        recipe = FujifilmRecipeFactory(name="")
+
+        response = self._post(client, recipe, json.dumps({"name": "  Kodak Gold "}))
+
+        assert response.status_code == 200
+        assert json.loads(response.content) == {"id": recipe.pk, "name": "Kodak Gold"}
+        recipe.refresh_from_db()
+        assert recipe.name == "Kodak Gold"
+
+    @pytest.mark.parametrize("name", ["", "   ", "x" * 26, "Caff\u00e8", None, 7])
+    def test_400_for_an_invalid_name(self, client, name):
+        recipe = FujifilmRecipeFactory(name="Before")
+
+        response = self._post(client, recipe, json.dumps({"name": name}))
+
+        assert response.status_code == 400
+        assert "25 ASCII" in json.loads(response.content)["error"]
+        recipe.refresh_from_db()
+        assert recipe.name == "Before"
+
+    @pytest.mark.parametrize("body", ["not json", "[1]"])
+    def test_400_for_a_bad_body(self, client, body):
+        assert self._post(client, FujifilmRecipeFactory(), body).status_code == 400
+
+    def test_404_for_a_missing_recipe(self, client):
+        response = client.post(
+            "/api/v1/recipes/999999/name/", data="{}", content_type="application/json", **AUTH
+        )
+
+        assert response.status_code == 404
+        assert response["Content-Type"] == "application/json"
+
+    def test_401_without_the_token_when_one_is_configured(self, client):
+        recipe = FujifilmRecipeFactory(name="Before")
+
+        response = client.post(f"/api/v1/recipes/{recipe.pk}/name/", data='{"name": "X"}', content_type="application/json")
+
+        assert response.status_code == 401
+        recipe.refresh_from_db()
+        assert recipe.name == "Before"
+
+    def test_a_form_post_is_refused_so_other_sites_cannot_send_it(self, client, settings):
+        settings.FILMCASE_API_TOKEN = ""
+        recipe = FujifilmRecipeFactory(name="Before")
+
+        response = client.post(f"/api/v1/recipes/{recipe.pk}/name/", data={"name": "Hacked"})
+
+        assert response.status_code == 415
+        recipe.refresh_from_db()
+        assert recipe.name == "Before"
+
+    def test_405_for_a_method_it_does_not_take(self, client):
+        response = client.delete(f"/api/v1/recipes/{FujifilmRecipeFactory().pk}/name/", **AUTH)
+
+        assert response.status_code == 405
+        assert response["Allow"] == "GET, HEAD, POST"

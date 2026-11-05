@@ -1,3 +1,4 @@
+import json
 from urllib.parse import urlencode
 
 from django import http
@@ -6,6 +7,7 @@ from django import urls
 from django.views import generic
 
 from src.data import models
+from src.domain.recipes import operations as recipe_operations
 from src.domain.recipes import queries as recipe_queries
 from src.domain.settings import queries as settings_queries
 from src.interfaces.images import views as image_views
@@ -18,6 +20,16 @@ _FALLBACK_THUMBNAIL_WIDTH = 600
 
 class _InvalidParameter(Exception):
     pass
+
+
+def _json_object(request: http.HttpRequest) -> dict[str, object]:
+    try:
+        body = json.loads(request.body)
+    except ValueError:
+        raise _InvalidParameter("The body must be JSON.")
+    if not isinstance(body, dict):
+        raise _InvalidParameter("The body must be a JSON object.")
+    return body
 
 
 def _thumbnail_url(image_id: int | None) -> str | None:
@@ -121,6 +133,28 @@ class RecipeList(generic.View):
             ],
             "facets": gallery.sidebar_options,
         })
+
+
+class RecipeName(generic.View):
+    """
+    Set the display name of a recipe. The body is ``{"name": "..."}``.
+
+    :raises Http404: if no recipe with the given ID exists.
+    """
+
+    def post(self, request: http.HttpRequest, recipe_id: int) -> http.HttpResponse:
+        recipe = shortcuts.get_object_or_404(models.FujifilmRecipe, pk=recipe_id)
+        try:
+            name = _json_object(request).get("name")
+        except _InvalidParameter as error:
+            return http.JsonResponse({"error": str(error)}, status=400)
+        try:
+            if not isinstance(name, str):
+                raise recipe_operations.RecipeNameValidationError(str(name))
+            recipe_operations.set_recipe_name(recipe=recipe, name=name.strip())
+        except recipe_operations.RecipeNameValidationError:
+            return http.JsonResponse({"error": "Name must be 25 ASCII characters max."}, status=400)
+        return http.JsonResponse({"id": recipe.pk, "name": recipe.name})
 
 
 class RecipeDetail(generic.View):

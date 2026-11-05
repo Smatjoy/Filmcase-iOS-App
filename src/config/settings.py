@@ -36,7 +36,7 @@ CSRF_TRUSTED_ORIGINS: list[str] = env.list(
     default=[f"https://{FILMCASE_HOST}:{FILMCASE_HTTPS_PORT}"],
 )
 
-# Optional bearer token for the read-only JSON API under /api/. Empty leaves the API open, like
+# Optional bearer token for the JSON API under /api/. Empty leaves the API open, like
 # the browser pages, which serve the same data (ADR 022). Deliberately not a constance setting:
 # a secret does not belong on the settings page or in the database.
 FILMCASE_API_TOKEN: str = env.str("FILMCASE_API_TOKEN", default="")

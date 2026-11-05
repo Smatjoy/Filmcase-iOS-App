@@ -31,9 +31,15 @@ Plain Django `JsonResponse` views, GET only, built from the same domain queries 
 
 Recipes carry an `is_favorite` flag, and the list takes `favorite=true`. The data model has no recipe-level favourite: favourites are marked on images. The API derives one, true when any image taken with the recipe is a favourite, because a phone in the field wants "my favourite recipes" and that is the closest thing the library already records. The rule lives in one domain query, `get_favorite_recipe_ids`, so the browser can adopt it unchanged if it ever wants the same filter.
 
-No DRF. The surface is a handful of read-only endpoints over data the domain layer already shapes, and a serializer framework would add a dependency and a second description of every field.
+No DRF. The surface is a handful of endpoints over data the domain layer already shapes, and a serializer framework would add a dependency and a second description of every field.
 
-Writes are not part of this. Editing stays in the browser, and the one write the native client performs, to the camera, does not touch the server.
+Writes were not part of the first version; see "Writes, added later".
+
+### Writes, added later (amended)
+
+The API started read-only. From 2026-11-05 the owner chose to bring the browser's editing to the app, so routes opt in to writes one at a time with `api_view(view, write_methods=...)`. They call the same domain operations the HTML views call.
+
+The reasoning for an open API without a token changes with this: "read-only" no longer holds. It remains acceptable on the owner's decision because the browser pages take the same changes without authentication, so an open write API gives a caller on the network nothing the web UI does not. A write must be sent as `application/json` (415 otherwise). A browser cannot send that across origins without a preflight, which the server does not answer, so another website cannot use a visitor's browser to change the library. Setting `FILMCASE_API_TOKEN` protects the API; it does not protect the browser pages.
 
 ### An optional static bearer token, `FILMCASE_API_TOKEN`
 

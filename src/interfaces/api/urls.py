@@ -8,6 +8,7 @@ from src.interfaces.camera import views as camera_views
 urlpatterns = [
     path("api/v1/recipes/", auth.api_view(views.RecipeList.as_view()), name="api-recipes"),
     path("api/v1/recipes/<int:recipe_id>/", auth.api_view(views.RecipeDetail.as_view()), name="api-recipe-detail"),
+    path("api/v1/recipes/<int:recipe_id>/name/", auth.api_view(views.RecipeName.as_view(), write_methods=("POST",)), name="api-recipe-name"),
     path("api/v1/recipes/<int:recipe_id>/camera-payload.json", auth.api_view(camera_views.RecipeCameraPayload.as_view()), name="api-recipe-camera-payload"),
     path("api/v1/collections/", auth.api_view(views.CollectionList.as_view()), name="api-collections"),
     path("api/v1/collections/<int:collection_id>/", auth.api_view(views.CollectionDetail.as_view()), name="api-collection-detail"),
