@@ -9,10 +9,18 @@ private enum CollectionsRoute: Hashable {
 struct CollectionsTab: View {
     let environment: AppEnvironment
 
+    @State private var path: [CollectionsRoute] = []
+    @State private var showsNewCollection = false
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             CollectionListView(model: environment.collections, thumbnails: environment.thumbnails)
                 .navigationTitle("Collections")
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("New collection", systemImage: "plus") { showsNewCollection = true }
+                    }
+                }
                 .navigationDestination(for: CollectionsRoute.self) { route in
                     switch route {
                     case .collection(let id):
@@ -21,6 +29,12 @@ struct CollectionsTab: View {
                         RecipeDetailView(recipeID: id, environment: environment)
                     }
                 }
+        }
+        .sheet(isPresented: $showsNewCollection) {
+            CollectionEditorView(mode: .create, environment: environment) { id in
+                Task { await environment.collections.load() }
+                path.append(.collection(id))
+            }
         }
     }
 }
@@ -37,7 +51,7 @@ private struct CollectionListView: View {
             case .empty:
                 ContentUnavailableView(
                     "No Collections", systemImage: "rectangle.stack",
-                    description: Text("Create collections on your Filmcase server to push them to the camera."))
+                    description: Text("Tap + to group recipes, then push them to the camera together."))
             case .error, .offline:
                 FailureView(state: model.state) { Task { await model.load() } }
             case .loaded:
@@ -85,8 +99,16 @@ private struct CollectionDetailView: View {
     let environment: AppEnvironment
 
     @State private var showsPush = false
+    @State private var showsEditor = false
+    @State private var showsRemoveConfirmation = false
+
+    @Environment(\.dismiss) private var dismiss
 
     private var model: CollectionsModel { environment.collections }
+
+    private var removeFailed: Binding<Bool> {
+        Binding(get: { model.removeError != nil }, set: { if !$0 { model.clearRemoveError() } })
+    }
 
     var body: some View {
         Group {
@@ -95,9 +117,13 @@ private struct CollectionDetailView: View {
             case .loading:
                 ProgressView("Loading collection")
             case .empty:
-                ContentUnavailableView(
-                    "Empty Collection", systemImage: "rectangle.stack",
-                    description: Text("This collection has no recipes."))
+                ContentUnavailableView {
+                    Label("Empty Collection", systemImage: "rectangle.stack")
+                } description: {
+                    Text("This collection has no recipes.")
+                } actions: {
+                    Button("Add recipes") { showsEditor = true }
+                }
             case .error, .offline:
                 FailureView(state: model.detailState(for: collectionID)) {
                     Task { await model.loadDetail(id: collectionID) }
@@ -112,6 +138,36 @@ private struct CollectionDetailView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button("Push to camera", systemImage: "paperplane") { showsPush = true }
                     .disabled(model.orderedRecipes(for: collectionID).isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Edit", systemImage: "pencil") { showsEditor = true }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button("Delete", systemImage: "trash", role: .destructive) { showsRemoveConfirmation = true }
+            }
+        }
+        .confirmationDialog(
+            "Delete \(model.detail(for: collectionID)?.name ?? "this collection")?",
+            isPresented: $showsRemoveConfirmation, titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task { if await model.remove(id: collectionID) { dismiss() } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The recipes stay in your library.")
+        }
+        .alert("Could not delete", isPresented: removeFailed) {
+            Button("OK", role: .cancel) { model.clearRemoveError() }
+        } message: {
+            Text(model.removeError ?? "")
+        }
+        .sheet(isPresented: $showsEditor) {
+            CollectionEditorView(mode: .edit(id: collectionID), environment: environment) { _ in
+                Task {
+                    await model.load()
+                    await model.loadDetail(id: collectionID)
+                }
             }
         }
         .task { await model.loadDetail(id: collectionID) }

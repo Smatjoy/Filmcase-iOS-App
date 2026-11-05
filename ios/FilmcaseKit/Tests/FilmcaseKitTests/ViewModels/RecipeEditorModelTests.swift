@@ -167,6 +167,14 @@ struct RecipeEditorModelTests {
         #expect(body(sent)["color"] as? Int == 3)
     }
 
+    @Test func wholeNumbersSentWithADecimalPointDecode() throws {
+        // The server stores some of these as decimals: `"color": -2.0`.
+        var text = String(decoding: Fixture.data("recipe_form"), as: UTF8.self)
+        text = text.replacingOccurrences(of: "\"color\": null", with: "\"color\": -2.0")
+        let form = try JSONDecoder().decode(RecipeFormValues.self, from: Data(text.utf8))
+        #expect(form.values.color == -2)
+    }
+
     @Test func aRefusalShowsTheServersWords() async {
         let rig = rig(writes: { _ in reply(json(["error": "Clarity: Ensure this value is less than or equal to 5."]), status: 400) })
         let model = RecipeEditorModel(mode: .create, client: rig.client)

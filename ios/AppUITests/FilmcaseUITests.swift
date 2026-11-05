@@ -38,6 +38,46 @@ final class FilmcaseUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Film Simulation"].firstMatch.waitForExistence(timeout: 20), "Saving opens the recipe")
     }
 
+    @MainActor
+    func testNewCollectionTakesRecipesAndSaves() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-demo"]
+        app.launch()
+
+        let tab = app.tabBars.buttons["Collections"].firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: 20))
+        tab.tap()
+        let new = app.buttons["New collection"].firstMatch
+        XCTAssertTrue(new.waitForExistence(timeout: 20))
+        new.tap()
+        let save = app.buttons["Save"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 20))
+        XCTAssertFalse(save.isEnabled)
+
+        let name = app.textFields["Name"].firstMatch
+        name.tap()
+        name.typeText("Trip")
+        let plain = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Plain Provia")).firstMatch
+        XCTAssertTrue(plain.waitForExistence(timeout: 20), "The recipes to add never appeared")
+        plain.tap()
+        XCTAssertTrue(app.staticTexts["C1"].firstMatch.waitForExistence(timeout: 5), "The added recipe takes the first slot")
+        let kodak = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Kodak")).firstMatch
+        XCTAssertTrue(kodak.waitForExistence(timeout: 5))
+        kodak.tap()
+
+        // Touch and hold, then drag: the second recipe takes the first slot.
+        XCTAssertTrue(app.staticTexts["C2"].firstMatch.waitForExistence(timeout: 5))
+        let second = app.staticTexts["Kodak Portra"].firstMatch
+        let firstPosition = app.staticTexts["Plain Provia"].firstMatch.frame.minY
+        XCTAssertGreaterThan(second.frame.minY, firstPosition)
+        second.press(forDuration: 1.2, thenDragTo: app.staticTexts["C1"].firstMatch)
+        sleep(1)
+        XCTAssertLessThan(
+            app.staticTexts["Kodak Portra"].firstMatch.frame.minY, app.staticTexts["Plain Provia"].firstMatch.frame.minY,
+            "Dragging reorders the recipes")
+        save.tap()
+    }
+
     // MARK: Accessibility audits (docs/ios_accessibility_audit.md)
 
     /// Apple's automated audit (contrast, hit regions, clipped text, Dynamic Type, missing

@@ -147,6 +147,21 @@ public struct FilmcaseClient: Sendable {
         try decodeWritten(CreatedID.self, try await post("/api/v1/recipes/\(id)/versions/", body: draft)).id
     }
 
+    /// Create a collection. Returns its id.
+    public func createCollection(_ fields: CollectionFields) async throws -> Int {
+        try decodeWritten(CreatedID.self, try await post("/api/v1/collections/", body: fields)).id
+    }
+
+    /// Replace a collection's name and recipes.
+    public func updateCollection(id: Int, _ fields: CollectionFields) async throws {
+        _ = try await post("/api/v1/collections/\(id)/", body: fields)
+    }
+
+    /// Delete a collection. Its recipes stay in the library.
+    public func removeCollection(id: Int) async throws {
+        _ = try await post("/api/v1/collections/\(id)/remove/", body: [String: String]())
+    }
+
     /// Remove a recipe. The server refuses one with images.
     public func removeRecipe(id: Int) async throws {
         _ = try await post("/api/v1/recipes/\(id)/remove/", body: [String: String]())

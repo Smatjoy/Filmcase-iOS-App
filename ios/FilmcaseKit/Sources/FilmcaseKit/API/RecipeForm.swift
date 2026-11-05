@@ -95,6 +95,22 @@ public struct RecipeLabels: Encodable, Sendable, Equatable {
     public let description: String
 }
 
+/// The body of a collection write. Recipes keep the order given.
+public struct CollectionFields: Encodable, Sendable, Equatable {
+    public let name: String
+    public let recipeIDs: [Int]
+
+    public init(name: String, recipeIDs: [Int]) {
+        self.name = name
+        self.recipeIDs = recipeIDs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case recipeIDs = "recipe_ids"
+    }
+}
+
 /// The body of a write that created something.
 struct CreatedID: Decodable {
     let id: Int

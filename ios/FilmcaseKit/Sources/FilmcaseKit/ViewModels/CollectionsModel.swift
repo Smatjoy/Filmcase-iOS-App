@@ -15,6 +15,9 @@ public final class CollectionsModel {
     /// The selected collection's recipes, in the order the collection stores them.
     public private(set) var orderedRecipes: [CollectionMember] = []
 
+    /// Why the last delete failed, as a sentence.
+    public private(set) var removeError: String?
+
     @ObservationIgnored private let client: FilmcaseClient
     @ObservationIgnored private var listGeneration = 0
     @ObservationIgnored private var detailGeneration = 0
@@ -42,6 +45,24 @@ public final class CollectionsModel {
     public func orderedRecipes(for id: Int) -> [CollectionMember] {
         isShowing(id: id) ? orderedRecipes : []
     }
+
+    /// Delete a collection and refresh the list. False when it failed (`removeError`).
+    @discardableResult
+    public func remove(id: Int) async -> Bool {
+        removeError = nil
+        do {
+            try await client.removeCollection(id: id)
+        } catch is CancellationError {
+            return false
+        } catch {
+            removeError = UserMessages.text(for: error)
+            return false
+        }
+        await load()
+        return true
+    }
+
+    public func clearRemoveError() { removeError = nil }
 
     public func load() async {
         listGeneration += 1
