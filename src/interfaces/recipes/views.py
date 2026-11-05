@@ -3,6 +3,7 @@ import re
 import tempfile
 import uuid
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlencode
 import attrs as _attrs
 import structlog
@@ -1159,7 +1160,73 @@ class RecipeCardFile(generic.View):
         return http.FileResponse(Path(self.card.filepath).open("rb"), content_type="image/jpeg")
 
 
-def _parse_white_balance_for_form(white_balance: str) -> tuple[str, int | None]:
+def recipe_data_from_form(cd: dict[str, Any]) -> image_dataclasses.FujifilmRecipeData:
+    """
+    Build recipe data from a valid ``CreateRecipe`` form's cleaned data.
+    """
+    wb = cd["white_balance"]
+    kelvin_temp = cd.get("kelvin_temperature")
+
+    def _to_str(value: object) -> str | None:
+        return None if value is None else str(value)
+
+    return image_dataclasses.FujifilmRecipeData(
+        name=cd["name"],
+        film_simulation=cd["film_simulation"],
+        d_range_priority=cd["d_range_priority"],
+        grain_roughness=cd["grain_roughness"],
+        color_chrome_effect=cd["color_chrome_effect"],
+        color_chrome_fx_blue=cd["color_chrome_fx_blue"],
+        white_balance=f"{kelvin_temp}K" if wb == "Kelvin" else wb,
+        white_balance_red=cd["white_balance_red"],
+        white_balance_blue=cd["white_balance_blue"],
+        sharpness=str(cd["sharpness"]),
+        high_iso_nr=str(cd["high_iso_nr"]),
+        clarity=str(cd["clarity"]),
+        dynamic_range=cd.get("dynamic_range"),
+        grain_size=cd.get("grain_size"),
+        highlight=_to_str(cd.get("highlight")),
+        shadow=_to_str(cd.get("shadow")),
+        color=_to_str(cd.get("color")),
+        monochromatic_color_warm_cool=_to_str(cd.get("monochromatic_color_warm_cool")),
+        monochromatic_color_magenta_green=_to_str(cd.get("monochromatic_color_magenta_green")),
+        sensors=tuple(cd.get("sensors") or ()),
+        description=cd.get("description") or "",
+    )
+
+
+def recipe_form_values(recipe: models.FujifilmRecipe) -> dict[str, object]:
+    """
+    The ``CreateRecipe`` form's values for *recipe*.
+    """
+    wb_value, kelvin = parse_white_balance_for_form(recipe.white_balance)
+    return {
+        "name": recipe.name,
+        "film_simulation": recipe.film_simulation,
+        "dynamic_range": recipe.dynamic_range,
+        "d_range_priority": recipe.d_range_priority,
+        "grain_roughness": recipe.grain_roughness,
+        "grain_size": recipe.grain_size,
+        "color_chrome_effect": recipe.color_chrome_effect,
+        "color_chrome_fx_blue": recipe.color_chrome_fx_blue,
+        "white_balance": wb_value,
+        "kelvin_temperature": kelvin,
+        "white_balance_red": recipe.white_balance_red,
+        "white_balance_blue": recipe.white_balance_blue,
+        "highlight": recipe.highlight,
+        "shadow": recipe.shadow,
+        "color": recipe.color,
+        "sharpness": recipe.sharpness,
+        "high_iso_nr": recipe.high_iso_nr,
+        "clarity": recipe.clarity,
+        "monochromatic_color_warm_cool": recipe.monochromatic_color_warm_cool,
+        "monochromatic_color_magenta_green": recipe.monochromatic_color_magenta_green,
+        "sensors": list(recipe.sensors.values_list("name", flat=True)),
+        "description": recipe.description,
+    }
+
+
+def parse_white_balance_for_form(white_balance: str) -> tuple[str, int | None]:
     if white_balance.endswith("K"):
         try:
             return "Kelvin", int(white_balance[:-1])
@@ -1184,39 +1251,14 @@ class EditRecipe(generic.FormView):  # type: ignore[type-arg]
         self.recipe = shortcuts.get_object_or_404(models.FujifilmRecipe, pk=kwargs["recipe_id"])
 
     def get_initial(self) -> dict[str, object]:
-        r = self.recipe
-        wb_value, kelvin = _parse_white_balance_for_form(r.white_balance)
-        return {
-            "name": r.name,
-            "film_simulation": r.film_simulation,
-            "dynamic_range": r.dynamic_range,
-            "d_range_priority": r.d_range_priority,
-            "grain_roughness": r.grain_roughness,
-            "grain_size": r.grain_size,
-            "color_chrome_effect": r.color_chrome_effect,
-            "color_chrome_fx_blue": r.color_chrome_fx_blue,
-            "white_balance": wb_value,
-            "kelvin_temperature": kelvin,
-            "white_balance_red": r.white_balance_red,
-            "white_balance_blue": r.white_balance_blue,
-            "highlight": r.highlight,
-            "shadow": r.shadow,
-            "color": r.color,
-            "sharpness": r.sharpness,
-            "high_iso_nr": r.high_iso_nr,
-            "clarity": r.clarity,
-            "monochromatic_color_warm_cool": r.monochromatic_color_warm_cool,
-            "monochromatic_color_magenta_green": r.monochromatic_color_magenta_green,
-            "sensors": list(r.sensors.values_list("name", flat=True)),
-            "description": r.description,
-        }
+        return recipe_form_values(self.recipe)
 
     def get_form_kwargs(self) -> dict[str, object]:
         kwargs = super().get_form_kwargs()
         if self.request.method == "POST" and not recipe_queries.recipe_is_editable(recipe_id=self.recipe.pk):
             data = kwargs["data"].copy()
             r = self.recipe
-            wb_value, kelvin = _parse_white_balance_for_form(r.white_balance)
+            wb_value, kelvin = parse_white_balance_for_form(r.white_balance)
             settings_defaults: dict[str, str] = {
                 "film_simulation": r.film_simulation,
                 "dynamic_range": r.dynamic_range or "",
@@ -1255,37 +1297,7 @@ class EditRecipe(generic.FormView):  # type: ignore[type-arg]
         return context
 
     def form_valid(self, form: interface_forms.CreateRecipe) -> http.HttpResponse:
-        cd = form.cleaned_data
-        wb = cd["white_balance"]
-        kelvin_temp = cd.get("kelvin_temperature")
-        white_balance_str = f"{kelvin_temp}K" if wb == "Kelvin" else wb
-
-        def _to_str(value: object) -> str | None:
-            return None if value is None else str(value)
-
-        recipe_data = image_dataclasses.FujifilmRecipeData(
-            name=cd["name"],
-            film_simulation=cd["film_simulation"],
-            d_range_priority=cd["d_range_priority"],
-            grain_roughness=cd["grain_roughness"],
-            color_chrome_effect=cd["color_chrome_effect"],
-            color_chrome_fx_blue=cd["color_chrome_fx_blue"],
-            white_balance=white_balance_str,
-            white_balance_red=cd["white_balance_red"],
-            white_balance_blue=cd["white_balance_blue"],
-            sharpness=str(cd["sharpness"]),
-            high_iso_nr=str(cd["high_iso_nr"]),
-            clarity=str(cd["clarity"]),
-            dynamic_range=cd.get("dynamic_range"),
-            grain_size=cd.get("grain_size"),
-            highlight=_to_str(cd.get("highlight")),
-            shadow=_to_str(cd.get("shadow")),
-            color=_to_str(cd.get("color")),
-            monochromatic_color_warm_cool=_to_str(cd.get("monochromatic_color_warm_cool")),
-            monochromatic_color_magenta_green=_to_str(cd.get("monochromatic_color_magenta_green")),
-            sensors=tuple(cd.get("sensors") or ()),
-            description=cd.get("description") or "",
-        )
+        recipe_data = recipe_data_from_form(form.cleaned_data)
 
         try:
             update_recipe_manually_uc.update_recipe_manually(recipe=self.recipe, data=recipe_data)
@@ -1333,7 +1345,7 @@ class CreateRecipeVersion(generic.FormView):  # type: ignore[type-arg]
 
     def get_initial(self) -> dict[str, object]:
         r = self.recipe
-        wb_value, kelvin = _parse_white_balance_for_form(r.white_balance)
+        wb_value, kelvin = parse_white_balance_for_form(r.white_balance)
         return {
             "name": r.name,
             "film_simulation": r.film_simulation,
@@ -1369,37 +1381,7 @@ class CreateRecipeVersion(generic.FormView):  # type: ignore[type-arg]
 
     def form_valid(self, form: interface_forms.CreateRecipe) -> http.HttpResponse:
         assert self.source_member is not None
-        cd = form.cleaned_data
-        wb = cd["white_balance"]
-        kelvin_temp = cd.get("kelvin_temperature")
-        white_balance_str = f"{kelvin_temp}K" if wb == "Kelvin" else wb
-
-        def _to_str(value: object) -> str | None:
-            return None if value is None else str(value)
-
-        recipe_data = image_dataclasses.FujifilmRecipeData(
-            name=cd["name"],
-            film_simulation=cd["film_simulation"],
-            d_range_priority=cd["d_range_priority"],
-            grain_roughness=cd["grain_roughness"],
-            color_chrome_effect=cd["color_chrome_effect"],
-            color_chrome_fx_blue=cd["color_chrome_fx_blue"],
-            white_balance=white_balance_str,
-            white_balance_red=cd["white_balance_red"],
-            white_balance_blue=cd["white_balance_blue"],
-            sharpness=str(cd["sharpness"]),
-            high_iso_nr=str(cd["high_iso_nr"]),
-            clarity=str(cd["clarity"]),
-            dynamic_range=cd.get("dynamic_range"),
-            grain_size=cd.get("grain_size"),
-            highlight=_to_str(cd.get("highlight")),
-            shadow=_to_str(cd.get("shadow")),
-            color=_to_str(cd.get("color")),
-            monochromatic_color_warm_cool=_to_str(cd.get("monochromatic_color_warm_cool")),
-            monochromatic_color_magenta_green=_to_str(cd.get("monochromatic_color_magenta_green")),
-            sensors=tuple(cd.get("sensors") or ()),
-            description=cd.get("description") or "",
-        )
+        recipe_data = recipe_data_from_form(form.cleaned_data)
 
         try:
             new_recipe = create_recipe_version_uc.create_recipe_version(
@@ -1437,37 +1419,7 @@ class CreateRecipe(generic.FormView):  # type: ignore[type-arg]
         return context
 
     def form_valid(self, form: interface_forms.CreateRecipe) -> http.HttpResponse:
-        cd = form.cleaned_data
-        wb = cd["white_balance"]
-        kelvin_temp = cd.get("kelvin_temperature")
-        white_balance_str = f"{kelvin_temp}K" if wb == "Kelvin" else wb
-
-        def _to_str(value: object) -> str | None:
-            return None if value is None else str(value)
-
-        recipe_data = image_dataclasses.FujifilmRecipeData(
-            name=cd["name"],
-            film_simulation=cd["film_simulation"],
-            d_range_priority=cd["d_range_priority"],
-            grain_roughness=cd["grain_roughness"],
-            color_chrome_effect=cd["color_chrome_effect"],
-            color_chrome_fx_blue=cd["color_chrome_fx_blue"],
-            white_balance=white_balance_str,
-            white_balance_red=cd["white_balance_red"],
-            white_balance_blue=cd["white_balance_blue"],
-            sharpness=str(cd["sharpness"]),
-            high_iso_nr=str(cd["high_iso_nr"]),
-            clarity=str(cd["clarity"]),
-            dynamic_range=cd.get("dynamic_range"),
-            grain_size=cd.get("grain_size"),
-            highlight=_to_str(cd.get("highlight")),
-            shadow=_to_str(cd.get("shadow")),
-            color=_to_str(cd.get("color")),
-            monochromatic_color_warm_cool=_to_str(cd.get("monochromatic_color_warm_cool")),
-            monochromatic_color_magenta_green=_to_str(cd.get("monochromatic_color_magenta_green")),
-            sensors=tuple(cd.get("sensors") or ()),
-            description=cd.get("description") or "",
-        )
+        recipe_data = recipe_data_from_form(form.cleaned_data)
 
         try:
             recipe = create_recipe_manually_uc.create_recipe_manually(data=recipe_data)

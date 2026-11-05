@@ -6,8 +6,12 @@ from src.interfaces.camera import views as camera_views
 # The two camera routes reuse the browser's views unchanged, so their bodies are
 # the same bytes; only the token check in front of them is new.
 urlpatterns = [
-    path("api/v1/recipes/", auth.api_view(views.RecipeList.as_view()), name="api-recipes"),
-    path("api/v1/recipes/<int:recipe_id>/", auth.api_view(views.RecipeDetail.as_view()), name="api-recipe-detail"),
+    path("api/v1/recipes/", auth.api_view(views.RecipeList.as_view(), write_methods=("POST",)), name="api-recipes"),
+    path("api/v1/recipes/form-options/", auth.api_view(views.RecipeFormOptions.as_view()), name="api-recipe-form-options"),
+    path("api/v1/recipes/<int:recipe_id>/", auth.api_view(views.RecipeDetail.as_view(), write_methods=("POST",)), name="api-recipe-detail"),
+    path("api/v1/recipes/<int:recipe_id>/form/", auth.api_view(views.RecipeFormValues.as_view()), name="api-recipe-form"),
+    path("api/v1/recipes/<int:recipe_id>/versions/", auth.api_view(views.RecipeVersions.as_view(), write_methods=("POST",)), name="api-recipe-versions"),
+    path("api/v1/recipes/<int:recipe_id>/remove/", auth.api_view(views.RecipeRemove.as_view(), write_methods=("POST",)), name="api-recipe-remove"),
     path("api/v1/recipes/<int:recipe_id>/name/", auth.api_view(views.RecipeName.as_view(), write_methods=("POST",)), name="api-recipe-name"),
     path("api/v1/recipes/<int:recipe_id>/camera-payload.json", auth.api_view(camera_views.RecipeCameraPayload.as_view()), name="api-recipe-camera-payload"),
     path("api/v1/collections/", auth.api_view(views.CollectionList.as_view()), name="api-collections"),

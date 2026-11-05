@@ -120,13 +120,13 @@ class TestAuthentication:
     def test_405_without_a_token_when_none_is_configured(self, client, make_url, settings):
         settings.FILMCASE_API_TOKEN = ""
 
-        assert client.post(make_url()).status_code == 405
+        assert client.delete(make_url()).status_code == 405
 
     def test_405_for_anything_but_get(self, client, make_url):
-        response = client.post(make_url(), **AUTH)
+        response = client.delete(make_url(), **AUTH)
 
         assert response.status_code == 405
-        assert response["Allow"] == "GET, HEAD"
+        assert response["Allow"].startswith("GET, HEAD")
         assert response["Content-Type"] == "application/json"
 
 
@@ -603,3 +603,170 @@ class TestRecipeName:
 
         assert response.status_code == 405
         assert response["Allow"] == "GET, HEAD, POST"
+
+
+def _recipe_form(**overrides):
+    return {
+        "name": "New One",
+        "film_simulation": "Provia",
+        "dynamic_range": "DR100",
+        "d_range_priority": "Off",
+        "grain_roughness": "Weak",
+        "grain_size": "Small",
+        "color_chrome_effect": "Off",
+        "color_chrome_fx_blue": "Off",
+        "white_balance": "Auto",
+        "white_balance_red": 1,
+        "white_balance_blue": -2,
+        "highlight": 0.5,
+        "shadow": -1,
+        "color": 2,
+        "sharpness": 0,
+        "high_iso_nr": 0,
+        "clarity": 0,
+        "sensors": ["X-Trans V"],
+        **overrides,
+    }
+
+
+def _post_json(client, url, body):
+    return client.post(url, data=json.dumps(body), content_type="application/json", **AUTH)
+
+
+@pytest.mark.django_db
+class TestRecipeFormOptions:
+    def test_serves_choices_and_ranges(self, client):
+        payload = json.loads(_get(client, "/api/v1/recipes/form-options/").content)
+
+        assert "Provia" in payload["choices"]["film_simulation"]
+        assert "Kelvin" in payload["choices"]["white_balance"]
+        assert payload["ranges"]["highlight"] == {"min": -2.0, "max": 4.0, "step": 0.5}
+        assert payload["ranges"]["clarity"] == {"min": -5.0, "max": 5.0, "step": 1}
+        assert "Acros STD" in payload["monochromatic_film_simulations"]
+
+
+@pytest.mark.django_db
+class TestCreateRecipe:
+    def test_creates_a_recipe(self, client):
+        response = _post_json(client, "/api/v1/recipes/", _recipe_form())
+
+        assert response.status_code == 201
+        detail = json.loads(_get(client, f"/api/v1/recipes/{json.loads(response.content)['id']}/").content)
+        assert detail["name"] == "New One"
+        assert detail["film_simulation"] == "Provia"
+
+    def test_kelvin_white_balance_is_stored_as_a_temperature(self, client):
+        response = _post_json(
+            client, "/api/v1/recipes/", _recipe_form(white_balance="Kelvin", kelvin_temperature=6500)
+        )
+
+        detail = json.loads(_get(client, f"/api/v1/recipes/{json.loads(response.content)['id']}/").content)
+        assert detail["white_balance"] == "6500K"
+
+    def test_400_names_the_field(self, client):
+        response = _post_json(client, "/api/v1/recipes/", _recipe_form(clarity=9))
+
+        assert response.status_code == 400
+        payload = json.loads(response.content)
+        assert "clarity" in payload["fields"]
+        assert payload["error"].startswith("Clarity: ")
+
+    def test_400_for_a_duplicate(self, client):
+        assert _post_json(client, "/api/v1/recipes/", _recipe_form()).status_code == 201
+
+        response = _post_json(client, "/api/v1/recipes/", _recipe_form(name="Same Settings"))
+
+        assert response.status_code == 400
+        assert "already exists" in json.loads(response.content)["error"]
+
+    def test_a_form_post_is_refused(self, client):
+        assert client.post("/api/v1/recipes/", data={"name": "X"}, **AUTH).status_code == 415
+
+
+@pytest.mark.django_db
+class TestEditRecipe:
+    def _create(self, client):
+        return json.loads(_post_json(client, "/api/v1/recipes/", _recipe_form()).content)["id"]
+
+    def test_form_values_round_trip(self, client):
+        recipe_id = self._create(client)
+
+        payload = json.loads(_get(client, f"/api/v1/recipes/{recipe_id}/form/").content)
+
+        assert payload["is_editable"] is True
+        assert payload["values"]["highlight"] == 0.5
+        assert payload["values"]["white_balance"] == "Auto"
+        assert payload["values"]["sensors"] == ["X-Trans V"]
+
+    def test_edits_only_what_is_sent(self, client):
+        recipe_id = self._create(client)
+
+        response = _post_json(client, f"/api/v1/recipes/{recipe_id}/", {"color": -3, "description": "Warm"})
+
+        assert response.status_code == 200
+        detail = json.loads(_get(client, f"/api/v1/recipes/{recipe_id}/").content)
+        assert detail["description"] == "Warm"
+        assert detail["name"] == "New One"
+        values = json.loads(_get(client, f"/api/v1/recipes/{recipe_id}/form/").content)["values"]
+        assert values["color"] == -3
+        assert values["highlight"] == 0.5
+
+    def test_a_recipe_with_images_keeps_its_settings_but_takes_a_name(self, client):
+        recipe = _camera_recipe(name="Shot With", white_balance_red=0, white_balance_blue=0, highlight=0, shadow=0, color=0)
+        ImageFactory(fujifilm_recipe=recipe)
+
+        locked = json.loads(_get(client, f"/api/v1/recipes/{recipe.pk}/form/").content)
+        assert locked["is_editable"] is False
+
+        settings = _post_json(client, f"/api/v1/recipes/{recipe.pk}/", {"color": 4})
+        assert settings.status_code == 400
+        assert "cannot be changed" in json.loads(settings.content)["error"]
+
+        assert _post_json(client, f"/api/v1/recipes/{recipe.pk}/", {"name": "Renamed"}).status_code == 200
+        recipe.refresh_from_db()
+        assert recipe.name == "Renamed"
+
+    def test_404_for_a_missing_recipe(self, client):
+        assert _post_json(client, "/api/v1/recipes/999999/", {"color": 1}).status_code == 404
+
+
+@pytest.mark.django_db
+class TestRecipeVersions:
+    def test_adds_a_version_to_the_line(self, client):
+        recipe_id = json.loads(_post_json(client, "/api/v1/recipes/", _recipe_form()).content)["id"]
+        assert json.loads(_get(client, f"/api/v1/recipes/{recipe_id}/form/").content)["has_version_line"] is True
+
+        response = _post_json(client, f"/api/v1/recipes/{recipe_id}/versions/", {"name": "New One v2", "color": -1})
+
+        assert response.status_code == 201
+        new_id = json.loads(response.content)["id"]
+        assert new_id != recipe_id
+        assert json.loads(_get(client, f"/api/v1/recipes/{new_id}/form/").content)["values"]["color"] == -1
+
+    def test_400_without_a_version_line(self, client):
+        recipe = _camera_recipe(name="Alone")
+
+        assert _post_json(client, f"/api/v1/recipes/{recipe.pk}/versions/", {"color": 1}).status_code == 400
+
+
+@pytest.mark.django_db
+class TestRemoveRecipe:
+    def test_removes_a_recipe(self, client):
+        recipe_id = json.loads(_post_json(client, "/api/v1/recipes/", _recipe_form()).content)["id"]
+
+        response = _post_json(client, f"/api/v1/recipes/{recipe_id}/remove/", {})
+
+        assert response.status_code == 200
+        assert _get(client, f"/api/v1/recipes/{recipe_id}/").status_code == 404
+
+    def test_a_recipe_with_images_stays(self, client):
+        recipe = _camera_recipe(name="Shot With")
+        ImageFactory(fujifilm_recipe=recipe)
+
+        response = _post_json(client, f"/api/v1/recipes/{recipe.pk}/remove/", {})
+
+        assert response.status_code == 400
+        assert "has images" in json.loads(response.content)["error"]
+
+    def test_404_for_a_missing_recipe(self, client):
+        assert _post_json(client, "/api/v1/recipes/999999/remove/", {}).status_code == 404
