@@ -17,6 +17,27 @@ final class FilmcaseUITests: XCTestCase {
             "The spec sheet does not show Film Simulation")
     }
 
+    @MainActor
+    func testNewRecipeFormRespondsToItsChoices() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-demo"]
+        app.launch()
+
+        let new = app.buttons["New recipe"].firstMatch
+        XCTAssertTrue(new.waitForExistence(timeout: 20))
+        new.tap()
+        let save = app.buttons["Save"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 20))
+        XCTAssertFalse(save.isEnabled, "A recipe cannot be saved without a name")
+
+        let name = app.textFields["Name"].firstMatch
+        name.tap()
+        name.typeText("Gold")
+        XCTAssertTrue(save.isEnabled)
+        save.tap()
+        XCTAssertTrue(app.staticTexts["Film Simulation"].firstMatch.waitForExistence(timeout: 20), "Saving opens the recipe")
+    }
+
     // MARK: Accessibility audits (docs/ios_accessibility_audit.md)
 
     /// Apple's automated audit (contrast, hit regions, clipped text, Dynamic Type, missing

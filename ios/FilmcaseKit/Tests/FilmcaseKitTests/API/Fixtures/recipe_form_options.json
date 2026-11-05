@@ -1,0 +1,153 @@
+{
+    "choices": {
+        "film_simulation": [
+            "Provia",
+            "Velvia",
+            "Astia",
+            "Pro Neg. Hi",
+            "Pro Neg. Std",
+            "Monochrome STD",
+            "Monochrome Yellow",
+            "Monochrome Red",
+            "Monochrome Green",
+            "Sepia",
+            "Classic Chrome",
+            "Acros STD",
+            "Acros Yellow",
+            "Acros Red",
+            "Acros Green",
+            "Eterna",
+            "Classic Negative",
+            "Eterna Bleach Bypass",
+            "Nostalgic Negative",
+            "Reala Ace"
+        ],
+        "dynamic_range": [
+            "DR-Auto",
+            "DR100",
+            "DR200",
+            "DR400"
+        ],
+        "d_range_priority": [
+            "Off",
+            "Weak",
+            "Strong",
+            "Auto"
+        ],
+        "grain_roughness": [
+            "Off",
+            "Weak",
+            "Strong"
+        ],
+        "grain_size": [
+            "Off",
+            "Small",
+            "Large"
+        ],
+        "color_chrome_effect": [
+            "Off",
+            "Weak",
+            "Strong"
+        ],
+        "color_chrome_fx_blue": [
+            "Off",
+            "Weak",
+            "Strong"
+        ],
+        "white_balance": [
+            "Auto",
+            "Auto (white priority)",
+            "Auto (ambience priority)",
+            "Daylight",
+            "Incandescent",
+            "Fluorescent 1",
+            "Fluorescent 2",
+            "Fluorescent 3",
+            "Shade",
+            "Kelvin",
+            "Underwater",
+            "Custom 1",
+            "Custom 2",
+            "Custom 3"
+        ],
+        "sensors": [
+            "X-Trans I",
+            "X-Trans II",
+            "X-Trans III",
+            "X-Trans IV",
+            "X-Trans V",
+            "GFX",
+            "Bayer",
+            "EXR-CMOS",
+            "Full Spectrum"
+        ]
+    },
+    "ranges": {
+        "kelvin_temperature": {
+            "min": 2500.0,
+            "max": 10000.0,
+            "step": 1
+        },
+        "white_balance_red": {
+            "min": -9.0,
+            "max": 9.0,
+            "step": 1
+        },
+        "white_balance_blue": {
+            "min": -9.0,
+            "max": 9.0,
+            "step": 1
+        },
+        "highlight": {
+            "min": -2.0,
+            "max": 4.0,
+            "step": 0.5
+        },
+        "shadow": {
+            "min": -2.0,
+            "max": 4.0,
+            "step": 0.5
+        },
+        "color": {
+            "min": -4.0,
+            "max": 4.0,
+            "step": 1
+        },
+        "sharpness": {
+            "min": -4.0,
+            "max": 4.0,
+            "step": 1
+        },
+        "high_iso_nr": {
+            "min": -4.0,
+            "max": 4.0,
+            "step": 1
+        },
+        "clarity": {
+            "min": -5.0,
+            "max": 5.0,
+            "step": 1
+        },
+        "monochromatic_color_warm_cool": {
+            "min": -9.0,
+            "max": 9.0,
+            "step": 1
+        },
+        "monochromatic_color_magenta_green": {
+            "min": -9.0,
+            "max": 9.0,
+            "step": 1
+        }
+    },
+    "monochromatic_film_simulations": [
+        "Acros Green",
+        "Acros Red",
+        "Acros STD",
+        "Acros Yellow",
+        "Monochrome Green",
+        "Monochrome Red",
+        "Monochrome STD",
+        "Monochrome Yellow",
+        "Sepia"
+    ]
+}

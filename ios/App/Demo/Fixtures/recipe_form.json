@@ -1,0 +1,28 @@
+{
+    "is_editable": true,
+    "has_version_line": false,
+    "values": {
+        "name": "Kodak Gold",
+        "film_simulation": "Provia",
+        "dynamic_range": "DR100",
+        "d_range_priority": "Off",
+        "grain_roughness": "Off",
+        "grain_size": "Off",
+        "color_chrome_effect": "Off",
+        "color_chrome_fx_blue": "Off",
+        "white_balance": "Auto",
+        "kelvin_temperature": null,
+        "white_balance_red": 0,
+        "white_balance_blue": 0,
+        "highlight": null,
+        "shadow": null,
+        "color": null,
+        "sharpness": 0,
+        "high_iso_nr": 0,
+        "clarity": 0,
+        "monochromatic_color_warm_cool": null,
+        "monochromatic_color_magenta_green": null,
+        "sensors": [],
+        "description": ""
+    }
+}

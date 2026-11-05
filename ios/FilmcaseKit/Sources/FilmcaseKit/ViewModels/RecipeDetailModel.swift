@@ -28,6 +28,11 @@ public final class RecipeDetailModel {
     /// How many renames went through, for a view that must refresh what shows the name.
     public private(set) var renameCount = 0
 
+    public private(set) var isRemoving = false
+    public private(set) var removeError: String?
+    /// True once the recipe is gone: the screen should close.
+    public private(set) var wasRemoved = false
+
     /// The screen's title: the name, or the web's fallback ("Provia #7") until it has one.
     public var titleText: String {
         guard let detail else { return "Recipe" }
@@ -95,6 +100,26 @@ public final class RecipeDetailModel {
     }
 
     public func clearRenameError() { renameError = nil }
+
+    /// Remove the recipe from the library. The server refuses one with images.
+    public func remove() async {
+        guard !isRemoving else { return }
+        isRemoving = true
+        removeError = nil
+        defer { isRemoving = false }
+        do {
+            try await client.removeRecipe(id: recipeID)
+            wasRemoved = true
+        } catch is CancellationError {
+            return
+        } catch FilmcaseClientError.badRequest(let message) {
+            removeError = message
+        } catch {
+            removeError = UserMessages.text(for: error)
+        }
+    }
+
+    public func clearRemoveError() { removeError = nil }
 
     /// The camera was connected or disconnected: judge the recipe against it again.
     public func recheckCamera() async {

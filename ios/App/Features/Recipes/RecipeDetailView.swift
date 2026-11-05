@@ -8,6 +8,10 @@ struct RecipeDetailView: View {
     @State private var showsSendSheet = false
     @State private var showsRename = false
     @State private var draftName = ""
+    @State private var showsEditor = false
+    @State private var showsRemoveConfirmation = false
+
+    @Environment(\.dismiss) private var dismiss
 
     init(recipeID: Int, environment: AppEnvironment) {
         self.environment = environment
@@ -30,8 +34,15 @@ struct RecipeDetailView: View {
         .toolbar {
             if model.detail != nil {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Rename", systemImage: "pencil", action: beginRename)
-                        .disabled(model.isRenaming)
+                    Menu("Recipe actions", systemImage: "ellipsis") {
+                        Button("Edit", systemImage: "slider.horizontal.3") { showsEditor = true }
+                        Button("Rename", systemImage: "pencil", action: beginRename)
+                            .disabled(model.isRenaming)
+                        Divider()
+                        Button("Remove", systemImage: "trash", role: .destructive) {
+                            showsRemoveConfirmation = true
+                        }
+                    }
                 }
             }
         }
@@ -50,9 +61,35 @@ struct RecipeDetailView: View {
         } message: {
             Text(model.renameError ?? "")
         }
+        .confirmationDialog(
+            "Remove \(model.titleText)?", isPresented: $showsRemoveConfirmation, titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) { Task { await model.remove() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It leaves your library for good. Slots on the camera are not affected.")
+        }
+        .alert("Could not remove", isPresented: removeFailed) {
+            Button("OK", role: .cancel) { model.clearRemoveError() }
+        } message: {
+            Text(model.removeError ?? "")
+        }
+        .sheet(isPresented: $showsEditor) {
+            RecipeEditorView(mode: .edit(id: model.recipeID), environment: environment) { _ in
+                Task {
+                    await model.load()
+                    await environment.library.reload()
+                }
+            }
+        }
         // The list shows the name too.
         .onChange(of: model.renameCount) { _, _ in
             Task { await environment.library.reload() }
+        }
+        .onChange(of: model.wasRemoved) { _, removed in
+            guard removed else { return }
+            Task { await environment.library.reload() }
+            dismiss()
         }
         .task { await model.load() }
         // A camera connected or left: judge the recipe against it again.
@@ -65,6 +102,10 @@ struct RecipeDetailView: View {
                 SendToCameraSheet(recipe: recipe, environment: environment)
             }
         }
+    }
+
+    private var removeFailed: Binding<Bool> {
+        Binding(get: { model.removeError != nil }, set: { if !$0 { model.clearRemoveError() } })
     }
 
     private var renameFailed: Binding<Bool> {

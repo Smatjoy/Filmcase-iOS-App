@@ -4,13 +4,27 @@ import SwiftUI
 struct RecipesTab: View {
     let environment: AppEnvironment
 
+    @State private var path: [Int] = []
+    @State private var showsNewRecipe = false
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             RecipeListView(library: environment.library, thumbnails: environment.thumbnails)
                 .navigationTitle("Recipes")
                 .navigationDestination(for: Int.self) { id in
                     RecipeDetailView(recipeID: id, environment: environment)
                 }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("New recipe", systemImage: "plus") { showsNewRecipe = true }
+                    }
+                }
+        }
+        .sheet(isPresented: $showsNewRecipe) {
+            RecipeEditorView(mode: .create, environment: environment) { id in
+                Task { await environment.library.reload() }
+                path.append(id)
+            }
         }
     }
 }

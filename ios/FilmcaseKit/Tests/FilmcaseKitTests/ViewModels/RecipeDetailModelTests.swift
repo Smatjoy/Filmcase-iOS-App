@@ -297,6 +297,32 @@ struct RecipeDetailModelTests {
         #expect(model.renameError == nil)
     }
 
+    @Test func removingARecipeClosesItAndARefusalIsShown() async {
+        let refuse = Mutex(true)
+        let rig = ModelRig(script: { request in
+            guard request.isAuthenticated else { return .fixture("recipe_list") }
+            let url = request.url?.absoluteString ?? ""
+            if url.hasSuffix("/remove/") {
+                return refuse.withLock { $0 }
+                    ? reply(json(["error": "This recipe has images, so it cannot be removed."]), status: 400)
+                    : reply(json(["removed": 1]))
+            }
+            return url.hasSuffix("camera-payload.json") ? .fixture("camera_payload") : .fixture("recipe_detail")
+        })
+        let model = RecipeDetailModel(recipeID: 1, client: rig.client)
+        await model.load()
+
+        await model.remove()
+        #expect(model.removeError == "This recipe has images, so it cannot be removed.")
+        #expect(!model.wasRemoved)
+
+        refuse.withLock { $0 = false }
+        model.clearRemoveError()
+        await model.remove()
+        #expect(model.removeError == nil)
+        #expect(model.wasRemoved)
+    }
+
     @Test func unreadableCameraDataKeepsTheDetailButBlocksSending() async {
         let model = RecipeDetailModel(recipeID: 1, client: rig(payloadStatus: 404).client)
         await model.load()

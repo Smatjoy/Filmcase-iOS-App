@@ -117,6 +117,41 @@ public struct FilmcaseClient: Sendable {
         _ = try await post("/api/v1/recipes/\(recipeId)/name/", body: ["name": name])
     }
 
+    /// What the recipe editor offers.
+    public func recipeFormOptions() async throws -> RecipeFormOptions {
+        try await decode(RecipeFormOptions.self, from: "/api/v1/recipes/form-options/")
+    }
+
+    /// One recipe as the editor shows it.
+    public func recipeForm(id: Int) async throws -> RecipeFormValues {
+        try await decode(RecipeFormValues.self, from: "/api/v1/recipes/\(id)/form/")
+    }
+
+    /// Create a recipe. Returns its id.
+    public func createRecipe(_ draft: RecipeDraft) async throws -> Int {
+        try decodeWritten(CreatedID.self, try await post("/api/v1/recipes/", body: draft)).id
+    }
+
+    /// Change a recipe's settings, name and description.
+    public func updateRecipe(id: Int, _ draft: RecipeDraft) async throws {
+        _ = try await post("/api/v1/recipes/\(id)/", body: draft)
+    }
+
+    /// Change the name and description only (a recipe with images keeps its settings).
+    public func updateRecipe(id: Int, labels: RecipeLabels) async throws {
+        _ = try await post("/api/v1/recipes/\(id)/", body: labels)
+    }
+
+    /// Add a version to a recipe's version line. Returns the new recipe's id.
+    public func createRecipeVersion(of id: Int, _ draft: RecipeDraft) async throws -> Int {
+        try decodeWritten(CreatedID.self, try await post("/api/v1/recipes/\(id)/versions/", body: draft)).id
+    }
+
+    /// Remove a recipe. The server refuses one with images.
+    public func removeRecipe(id: Int) async throws {
+        _ = try await post("/api/v1/recipes/\(id)/remove/", body: [String: String]())
+    }
+
     public func cameraPayload(recipeId: Int) async throws -> Data {
         try await get("/api/v1/recipes/\(recipeId)/camera-payload.json")
     }
@@ -125,6 +160,14 @@ public struct FilmcaseClient: Sendable {
 
     private func decode<T: Decodable>(_ type: T.Type, from path: String, query: [URLQueryItem] = []) async throws -> T {
         let data = try await get(path, query: query)
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch let error as DecodingError {
+            throw FilmcaseClientError.decoding(String(describing: error))
+        }
+    }
+
+    private func decodeWritten<T: Decodable>(_ type: T.Type, _ data: Data) throws -> T {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch let error as DecodingError {

@@ -20,7 +20,9 @@ struct DemoHTTPTransport: HTTPTransport {
         let parts = url.path.split(separator: "/").map(String.init)
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         let favoritesOnly = query.contains { $0.name == "favorite" && $0.value == "true" }
-        let fixture = Self.fixture(for: parts, favoritesOnly: favoritesOnly)
+        // Writes are accepted and not kept: the fixtures do not change.
+        let fixture = request.httpMethod == "POST"
+            ? "recipe_detail" : Self.fixture(for: parts, favoritesOnly: favoritesOnly)
         guard let fileURL = bundle.url(forResource: fixture ?? "error_404", withExtension: "json") else {
             throw URLError(.fileDoesNotExist)
         }
@@ -38,10 +40,10 @@ struct DemoHTTPTransport: HTTPTransport {
         let rest = Array(parts.dropFirst(2))
         switch (rest[0], rest.count) {
         case ("recipes", 1): return favoritesOnly ? "recipe_list_favorites" : "recipe_list"
+        case ("recipes", 2) where rest[1] == "form-options": return "recipe_form_options"
         case ("recipes", 2): return "recipe_detail"
         case ("recipes", 3) where rest[2] == "camera-payload.json": return "camera_payload"
-        // Writes are accepted and not kept: the fixtures do not change.
-        case ("recipes", 3) where rest[2] == "name": return "recipe_detail"
+        case ("recipes", 3) where rest[2] == "form": return "recipe_form"
         case ("collections", 1): return "collection_list"
         case ("collections", 2): return "collection_detail"
         case ("camera", 2) where rest[1] == "client-config.json": return "camera_client_config"

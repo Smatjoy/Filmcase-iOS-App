@@ -177,6 +177,10 @@ final class AppEnvironment {
             camera: RunnerCameraSource(runner: connection, encodings: cameraConfig.encodings))
     }
 
+    func makeRecipeEditorModel(mode: RecipeEditorModel.Mode) -> RecipeEditorModel {
+        RecipeEditorModel(mode: mode, client: client)
+    }
+
     /// Reload what depends on the server after the servers or token changed.
     func reloadServerContent() async {
         await library.reload()
